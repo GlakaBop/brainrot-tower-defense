@@ -146,6 +146,92 @@ end
 shopBtn.Activated:Connect(function() shop.Visible = not shop.Visible end)
 closeShop.Activated:Connect(function() shop.Visible = false end)
 
+---------------------------------------------------------------- towers / loadout panel
+local loadoutRemote = ReplicatedStorage:WaitForChild("ToggleLoadout")
+
+local towersBtn = UI.button({
+	Name = "TowersButton", Size = UDim2.fromOffset(150, 52), Position = UDim2.new(0, 16, 1, -78), AnchorPoint = Vector2.new(0, 1),
+	Color = C.Target, Text = "TOWERS", TextSize = 24, Radius = 14, Parent = gui,
+})
+towersBtn.FontFace = Theme.FontHeavy
+
+local towersPanel = UI.panel({
+	AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromOffset(640, 460),
+	Visible = false, ZIndex = 10, Parent = gui,
+}, { UI.padding(18) })
+UI.label({ Size = UDim2.new(1, -40, 0, 32), Text = "Towers", FontFace = Theme.FontHeavy, TextSize = 28,
+	TextXAlignment = Enum.TextXAlignment.Left, Parent = towersPanel })
+local loadoutLbl = UI.label({ Position = UDim2.fromOffset(0, 32), Size = UDim2.new(1, -40, 0, 20), TextSize = 15,
+	TextColor3 = C.SubText, TextXAlignment = Enum.TextXAlignment.Left, Parent = towersPanel })
+local closeTowers = UI.button({ Size = UDim2.fromOffset(32, 32), Position = UDim2.new(1, -32, 0, 0), Color = C.PanelLight, Text = "X", Parent = towersPanel })
+
+local towerGrid = UI.new("Frame", {
+	Position = UDim2.fromOffset(0, 64), Size = UDim2.new(1, 0, 1, -64), BackgroundTransparency = 1, Parent = towersPanel,
+}, {
+	UI.new("UIGridLayout", { CellSize = UDim2.fromOffset(140, 172), CellPadding = UDim2.fromOffset(10, 10),
+		HorizontalAlignment = Enum.HorizontalAlignment.Center, SortOrder = Enum.SortOrder.LayoutOrder }),
+})
+
+local towerCards = {}
+for i, kind in Config.TowerOrder do
+	local def = Config.Towers[kind]
+	local rarity = Config.GetRarity(def.Rarity or "Common")
+	local card = UI.new("TextButton", { BackgroundColor3 = C.PanelLight, BackgroundTransparency = 0.3, AutoButtonColor = false,
+		Text = "", LayoutOrder = i, Parent = towerGrid }, { UI.corner(12) })
+	local cardStroke = UI.stroke(rarity.Color, 0.5, 2)
+	cardStroke.Parent = card
+	local iconFrame = UI.icon({ Size = UDim2.fromOffset(70, 70), Position = UDim2.new(0.5, 0, 0, 12), AnchorPoint = Vector2.new(0.5, 0),
+		Color = def.Color, Image = Theme.Icons.Towers[kind], Glyph = Theme.Glyphs.Towers[kind], Parent = card })
+	UI.label({ Position = UDim2.fromOffset(4, 88), Size = UDim2.new(1, -8, 0, 20), Text = def.DisplayName,
+		FontFace = Theme.FontBold, TextSize = 15, TextTruncate = Enum.TextTruncate.AtEnd, Parent = card })
+	UI.label({ Position = UDim2.fromOffset(0, 108), Size = UDim2.new(1, 0, 0, 16), Text = rarity.Id:upper(),
+		FontFace = Theme.FontHeavy, TextSize = 12, TextColor3 = rarity.Color, Parent = card })
+	local status = UI.label({ AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -10), Size = UDim2.new(1, -20, 0, 26),
+		BackgroundTransparency = 0, BackgroundColor3 = C.Panel, FontFace = Theme.FontBold, TextSize = 14, Parent = card })
+	UI.corner(8).Parent = status
+	card.Activated:Connect(function()
+		local ok, msg = loadoutRemote:InvokeServer(kind)
+		toast(msg, ok)
+	end)
+	towerCards[kind] = { card = card, stroke = cardStroke, status = status, icon = iconFrame }
+end
+
+local function refreshLoadout()
+	local owned, equipped = {}, {}
+	for _, k in string.split(player:GetAttribute("OwnedTowers") or "", ",") do owned[k] = true end
+	local loadout = string.split(player:GetAttribute("Loadout") or "", ",")
+	for _, k in loadout do equipped[k] = true end
+	local count = 0
+	for _, k in loadout do if k ~= "" then count += 1 end end
+	loadoutLbl.Text = string.format("Equipped %d / %d  ·  Click a tower to equip or unequip it", count, Config.LoadoutSize)
+
+	for kind, c in towerCards do
+		local art = c.icon:FindFirstChild("Art")
+		if equipped[kind] then
+			c.status.Text = "EQUIPPED"
+			c.status.TextColor3 = C.Gold
+			c.stroke.Transparency, c.stroke.Thickness = 0, 3
+		elseif owned[kind] then
+			c.status.Text = "Equip"
+			c.status.TextColor3 = C.Text
+			c.stroke.Transparency, c.stroke.Thickness = 0.5, 2
+		else
+			c.status.Text = "From crates"
+			c.status.TextColor3 = C.SubText
+			c.stroke.Transparency, c.stroke.Thickness = 0.8, 2
+		end
+		local dim = if owned[kind] then 0 else 0.6
+		if art then art.ImageTransparency = dim else c.icon.BackgroundTransparency = dim end
+	end
+end
+
+towersBtn.Activated:Connect(function()
+	towersPanel.Visible = not towersPanel.Visible
+	shop.Visible = false
+end)
+closeTowers.Activated:Connect(function() towersPanel.Visible = false end)
+shopBtn.Activated:Connect(function() towersPanel.Visible = false end)
+
 ---------------------------------------------------------------- queue panel
 local queue = UI.panel({
 	AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -16, 0.5, 0), Size = UDim2.fromOffset(300, 0),
@@ -219,6 +305,7 @@ local function refreshStats()
 	coinsLbl.Text = tostring(player:GetAttribute("Coins") or 0)
 	winsLbl.Text = tostring(player:GetAttribute("Wins") or 0)
 	refreshShop()
+	refreshLoadout()
 	refreshQueue()
 end
 

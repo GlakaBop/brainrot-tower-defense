@@ -64,7 +64,7 @@ end
 Config.Crates = {
 	{
 		Id = "Basic", DisplayName = "Basic Crate", Price = 100, Color = Color3.fromRGB(90, 160, 255),
-		Weights = { Common = 55, Rare = 32, Epic = 10, Legendary = 2.5, Mythic = 0.5 },
+		Weights = { Common = 35, Rare = 45, Epic = 15, Legendary = 4, Mythic = 1 },
 	},
 	{
 		Id = "Brainrot", DisplayName = "Brainrot Crate", Price = 350, Color = Color3.fromRGB(255, 60, 200),
@@ -234,8 +234,59 @@ Config.Towers = {
 			{ Cost = 400, Damage = 60, Range = 60, Cooldown = 2.0 },
 		},
 	},
+
+	-- Type = "Farm": no attack, pays its owner Income cash at the end of every wave.
+	BagChaser = {
+		DisplayName = "Bag Chaser", Rarity = "Rare", Type = "Farm", Limit = 6,
+		Description = "Earns extra cash every wave. Doesn't attack.",
+		Color = Color3.fromRGB(255, 215, 0), HeadShape = "Block", HitsFlying = false,
+		Levels = {
+			{ Cost = 250, Range = 5, Income = 40 },
+			{ Cost = 225, Range = 5, Income = 90 },
+			{ Cost = 400, Range = 5, Income = 180 },
+		},
+	},
+	-- RevealsHidden: towers in this tower's range can target hidden enemies.
+	SusRadar = {
+		DisplayName = "Sus Radar", Rarity = "Rare", RevealsHidden = true,
+		Description = "Lets nearby towers see hidden enemies. Weak attack.",
+		Color = Color3.fromRGB(120, 255, 160), HeadShape = "Cylinder", HitsFlying = true,
+		Sound = "Laser", Pitch = 1.5,
+		Levels = {
+			{ Cost = 200, Damage = 2, Range = 16, Cooldown = 0.8 },
+			{ Cost = 175, Damage = 3, Range = 19, Cooldown = 0.7 },
+			{ Cost = 300, Damage = 5, Range = 22, Cooldown = 0.6 },
+		},
+	},
+	-- Type = "Support": boosts towers inside its range (strongest boost applies, they don't stack).
+	AuraFarmer = {
+		DisplayName = "Aura Farmer", Rarity = "Epic", Type = "Support", Limit = 4,
+		Description = "Boosts damage and fire rate of nearby towers.",
+		Color = Color3.fromRGB(255, 120, 200), HeadShape = "Ball", HitsFlying = false,
+		Levels = {
+			{ Cost = 300, Range = 12, DamageBuff = 0.15, SpeedBuff = 0 },
+			{ Cost = 275, Range = 14, DamageBuff = 0.25, SpeedBuff = 0.1 },
+			{ Cost = 450, Range = 16, DamageBuff = 0.4, SpeedBuff = 0.2 },
+		},
+	},
+	-- Type = "Chain": hits a target, then jumps to up to Chains more enemies within ChainRange.
+	MewingTesla = {
+		DisplayName = "Mewing Tesla", Rarity = "Mythic", Type = "Chain",
+		Description = "Lightning that chains between enemies.",
+		Color = Color3.fromRGB(120, 230, 255), HeadShape = "Ball", HitsFlying = true,
+		Sound = "Laser", Pitch = 2.2,
+		Levels = {
+			{ Cost = 400, Damage = 6, Range = 16, Cooldown = 1.1, Chains = 3, ChainRange = 9 },
+			{ Cost = 350, Damage = 9, Range = 17, Cooldown = 1.0, Chains = 4, ChainRange = 10 },
+			{ Cost = 600, Damage = 14, Range = 19, Cooldown = 0.85, Chains = 6, ChainRange = 11 },
+		},
+	},
 }
-Config.TowerOrder = { "RizzBlaster", "BrainFreeze", "YapCannon", "SigmaSniper" }
+Config.TowerOrder = {
+	"RizzBlaster", "BrainFreeze", "BagChaser", "SusRadar",
+	"YapCannon", "AuraFarmer", "SigmaSniper", "MewingTesla",
+}
+Config.LoadoutSize = 5
 
 -- Each wave is a list of groups spawned in order: { enemy, count, secondsBetween }
 Config.Waves = {

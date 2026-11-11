@@ -415,14 +415,24 @@ local function refreshPanel()
 	for _, child in statsBox:GetChildren() do
 		if child:IsA("Frame") then child:Destroy() end
 	end
-	statRow(1, "Damage", s.Damage, n and n.Damage)
-	statRow(2, "Range", s.Range, n and n.Range)
-	statRow(3, "Shots / sec", 1 / s.Cooldown, n and 1 / n.Cooldown)
-	if s.Splash then statRow(4, "Splash", s.Splash, n and n.Splash) end
-	if s.Slow then
-		statRow(5, "Slow", math.floor((1 - s.Slow) * 100), n and math.floor((1 - n.Slow) * 100), "%")
+	if def.Type == "Farm" then
+		statRow(1, "Cash per wave", s.Income, n and n.Income)
+	elseif def.Type == "Support" then
+		statRow(1, "Boost range", s.Range, n and n.Range)
+		statRow(2, "Damage boost", math.floor(s.DamageBuff * 100), n and math.floor(n.DamageBuff * 100), "%")
+		statRow(3, "Fire rate boost", math.floor(s.SpeedBuff * 100), n and math.floor(n.SpeedBuff * 100), "%")
+	else
+		statRow(1, "Damage", s.Damage, n and n.Damage)
+		statRow(2, "Range", s.Range, n and n.Range)
+		statRow(3, "Shots / sec", 1 / s.Cooldown, n and 1 / n.Cooldown)
+		if s.Splash then statRow(4, "Splash", s.Splash, n and n.Splash) end
+		if s.Slow then
+			statRow(5, "Slow", math.floor((1 - s.Slow) * 100), n and math.floor((1 - n.Slow) * 100), "%")
+		end
+		if s.Chains then statRow(6, "Chains", s.Chains, n and n.Chains) end
+		statRow(7, "Hits flying", if def.HitsFlying then "Yes" else "No")
+		if def.RevealsHidden then statRow(8, "Reveals hidden", "Yes") end
 	end
-	statRow(6, "Hits flying", if def.HitsFlying then "Yes" else "No")
 
 	local mine = selected:GetAttribute("OwnerId") == player.UserId
 	upgradeBtn.Visible, btnRow.Visible, ownerNote.Visible = mine, mine, not mine
@@ -566,9 +576,15 @@ end
 for _, kind in Config.StarterTowers do
 	owned[kind] = true
 end
+-- Hotbar = the loadout picked in the lobby (falls back to owned towers if it's missing).
 local loadout = {}
-for _, kind in Config.TowerOrder do
-	if owned[kind] then table.insert(loadout, kind) end
+for _, kind in string.split(player:GetAttribute("Loadout") or "", ",") do
+	if Config.Towers[kind] and owned[kind] then table.insert(loadout, kind) end
+end
+if #loadout == 0 then
+	for _, kind in Config.TowerOrder do
+		if owned[kind] and #loadout < Config.LoadoutSize then table.insert(loadout, kind) end
+	end
 end
 
 for i, kind in loadout do

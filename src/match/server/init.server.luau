@@ -235,6 +235,16 @@ local function buildTowerVisual(tw)
 	Util.billboardText(head, string.rep("★", lvl), UDim2.fromOffset(60, 20), Vector3.new(0, headSize / 2 + 0.8, 0),
 		Color3.fromRGB(255, 220, 80))
 
+	if def.Type == "Support" then
+		local range = def.Levels[lvl].Range
+		makePart({
+			Name = "AuraRing", Shape = Enum.PartType.Cylinder, Size = Vector3.new(0.15, range * 2, range * 2),
+			CFrame = CFrame.new(flat + Vector3.new(0, 0.12, 0)) * CFrame.Angles(0, 0, math.rad(90)),
+			Color = def.Color, Material = Enum.Material.Neon, Transparency = 0.85,
+			CanCollide = false, CanQuery = false, CanTouch = false, CastShadow = false,
+		}, model)
+	end
+
 	model.PrimaryPart = towerBase
 	model:SetAttribute("Level", lvl)
 	tw.muzzle = headPos
@@ -247,8 +257,17 @@ local function placeTower(player, kind, pos)
 	local def = Config.Towers[kind]
 	if not def then return false, "Unknown tower" end
 	local data = DataService.get(player)
-	if not (data and data.Towers[kind]) then
-		return false, "Unlock this tower in the lobby shop first!"
+	if not (data and data.Towers[kind] and table.find(data.Loadout, kind)) then
+		return false, "That tower isn't in your loadout!"
+	end
+	if def.Limit then
+		local count = 0
+		for _, tw in towers do
+			if tw.kind == kind and tw.ownerId == player.UserId then count += 1 end
+		end
+		if count >= def.Limit then
+			return false, "You can only place " .. def.Limit .. " " .. def.DisplayName .. "s!"
+		end
 	end
 	local cost = def.Levels[1].Cost
 	local cash = getCash(player)
@@ -370,15 +389,50 @@ local function findTarget(tw, s)
 	return best
 end
 
-local function shoot(tw, s, e)
+-- Strongest boost from any Aura-type support tower whose range covers this tower.
+local function getBuff(tw)
+	local dmg, speed = 0, 0
+	for _, other in towers do
+		if other ~= tw and other.def.Type == "Support" then
+			local s = towerStats(other)
+			if (other.pos - tw.pos).Magnitude <= s.Range then
+				dmg = math.max(dmg, s.DamageBuff or 0)
+				speed = math.max(speed, s.SpeedBuff or 0)
+			end
+		end
+	end
+	return dmg, speed
+end
+
+local function shoot(tw, s, e, damage)
 	local to = e.body.Position
 	Effects.sound(tw.def.Sound or "Laser", tw.muzzle, tw.def.Pitch)
-	if s.Splash then
+	if tw.def.Type == "Chain" then
+		-- Hit the target, then jump to the nearest un-hit enemy, up to s.Chains extra times.
+		local hit, from, current = {}, tw.muzzle, e
+		for _ = 0, s.Chains do
+			hit[current] = true
+			local pos = current.body.Position
+			Effects.beam(from, pos, tw.def.Color, 0.35)
+			Effects.pop(pos, tw.def.Color, 1.2)
+			damageEnemy(current, damage)
+			from = pos
+			local nextE, best = nil, s.ChainRange
+			for _, other in enemies do
+				if other.alive and not hit[other] and (tw.def.HitsFlying or not other.def.Flying) then
+					local dist = (other.body.Position - pos).Magnitude
+					if dist <= best then nextE, best = other, dist end
+				end
+			end
+			if not nextE then break end
+			current = nextE
+		end
+	elseif s.Splash then
 		Effects.lob(tw.muzzle, to, tw.def.Color)
 		Effects.pop(to, tw.def.Color, s.Splash * 0.6)
 		for _, other in enemies do
 			if other.alive and not other.def.Flying and (other.body.Position - to).Magnitude <= s.Splash then
-				damageEnemy(other, s.Damage)
+				damageEnemy(other, damage)
 			end
 		end
 	else
@@ -386,7 +440,23 @@ local function shoot(tw, s, e)
 		if s.Slow then
 			slowEnemy(e, s.Slow, s.SlowTime)
 		end
-		damageEnemy(e, s.Damage)
+		damageEnemy(e, damage)
+	end
+end
+
+-- Pays every Bag Chaser's owner at the end of a wave.
+local function payFarms()
+	for _, tw in towers do
+		if tw.def.Type == "Farm" then
+			local owner = Players:GetPlayerByUserId(tw.ownerId)
+			local cash = owner and getCash(owner)
+			if cash then
+				local income = towerStats(tw).Income
+				cash.Value += income
+				Effects.floatText(tw.muzzle, "+$" .. income, Color3.fromRGB(255, 215, 0))
+				Effects.confetti(tw.muzzle, 8)
+			end
+		end
 	end
 end
 
@@ -423,13 +493,17 @@ RunService.Heartbeat:Connect(function(dt)
 	end
 
 	for _, tw in towers do
-		tw.cooldown -= dt
-		if tw.cooldown <= 0 then
-			local s = towerStats(tw)
-			local target = findTarget(tw, s)
-			if target then
-				tw.cooldown = s.Cooldown
-				shoot(tw, s, target)
+		local kindType = tw.def.Type
+		if kindType ~= "Farm" and kindType ~= "Support" then
+			tw.cooldown -= dt
+			if tw.cooldown <= 0 then
+				local s = towerStats(tw)
+				local target = findTarget(tw, s)
+				if target then
+					local dmgBuff, speedBuff = getBuff(tw)
+					tw.cooldown = s.Cooldown / (1 + speedBuff)
+					shoot(tw, s, target, s.Damage * (1 + dmgBuff))
+				end
 			end
 		end
 	end
@@ -578,6 +652,7 @@ while true do
 			break
 		end
 		cleared = w
+		payFarms()
 		if w < difficulty.Waves then
 			local bonus = giveAll(Config.WaveBonus(w))
 			countdown(Config.Intermission, "Wave cleared! +$" .. bonus .. " - next wave in %d")

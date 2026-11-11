@@ -35,7 +35,25 @@ local function defaultData()
 		GamesPlayed = 0,
 		Pity = 0, -- crates opened since the last Legendary+
 		CratesOpened = 0,
+		Loadout = table.clone(Config.StarterTowers), -- ordered list of equipped tower ids
 	}
+end
+
+-- Keeps the loadout valid: only owned, known, unique towers, max LoadoutSize, never empty.
+local function cleanLoadout(data)
+	local clean, seen = {}, {}
+	for _, kind in data.Loadout or {} do
+		if Config.Towers[kind] and data.Towers[kind] and not seen[kind] and #clean < Config.LoadoutSize then
+			table.insert(clean, kind)
+			seen[kind] = true
+		end
+	end
+	if #clean == 0 then
+		for _, kind in Config.StarterTowers do
+			table.insert(clean, kind)
+		end
+	end
+	data.Loadout = clean
 end
 
 local function reconcile(data)
@@ -46,6 +64,7 @@ local function reconcile(data)
 	for _, kind in Config.StarterTowers do
 		data.Towers[kind] = true
 	end
+	cleanLoadout(data)
 	return data
 end
 
@@ -68,6 +87,7 @@ local function syncAttributes(player, data)
 	player:SetAttribute("BeatenDifficulties", setsToString(data.Beaten))
 	player:SetAttribute("Wins", data.Wins)
 	player:SetAttribute("Pity", data.Pity)
+	player:SetAttribute("Loadout", table.concat(data.Loadout, ","))
 end
 
 -- Session lock: while a server has a player's data loaded, it stamps { job, time } on the save.
@@ -131,6 +151,7 @@ function DataService.update(player, fn)
 	local p = profiles[player]
 	if not p then return false end
 	fn(p.data)
+	cleanLoadout(p.data)
 	syncAttributes(player, p.data)
 	return true
 end

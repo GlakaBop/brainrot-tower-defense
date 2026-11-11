@@ -380,6 +380,9 @@ makeRemote("OpenCrate", function(player, crateId)
 		d.Coins -= crate.Price
 		d.Coins += refund
 		d.Towers[kind] = true
+		if not duplicate and #d.Loadout < Config.LoadoutSize then
+			table.insert(d.Loadout, kind) -- auto-equip new towers while there's room
+		end
 		d.CratesOpened += 1
 		d.Pity = if rarityIndex >= legendaryIndex then 0 else d.Pity + 1
 	end)
@@ -393,4 +396,24 @@ end)
 
 Players.PlayerRemoving:Connect(function(p)
 	opening[p] = nil
+end)
+
+---------------------------------------------------------------- loadout
+-- Toggle a tower in/out of the player's loadout.
+makeRemote("ToggleLoadout", function(player, kind)
+	local data = DataService.get(player)
+	if not data then return false, "Your data hasn't loaded yet" end
+	if typeof(kind) ~= "string" or not Config.Towers[kind] then return false, "Unknown tower" end
+	if not data.Towers[kind] then return false, "Unlock it from a crate first!" end
+	local index = table.find(data.Loadout, kind)
+	if index then
+		if #data.Loadout <= 1 then return false, "You need at least one tower equipped!" end
+		DataService.update(player, function(d) table.remove(d.Loadout, index) end)
+		return true, Config.Towers[kind].DisplayName .. " unequipped"
+	end
+	if #data.Loadout >= Config.LoadoutSize then
+		return false, "Loadout full! Unequip a tower first."
+	end
+	DataService.update(player, function(d) table.insert(d.Loadout, kind) end)
+	return true, Config.Towers[kind].DisplayName .. " equipped"
 end)

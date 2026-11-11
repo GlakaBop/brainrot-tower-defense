@@ -37,6 +37,10 @@ Theme.Icons = {
 		BrainFreeze = "rbxassetid://104923947695218",
 		YapCannon = "rbxassetid://122455259914881",
 		SigmaSniper = "rbxassetid://97520522995430",
+		BagChaser = "",
+		SusRadar = "",
+		AuraFarmer = "",
+		MewingTesla = "",
 	},
 	-- Crate art (square, transparent PNG). Empty = drawn placeholder box.
 	Crates = {
@@ -55,6 +59,10 @@ Theme.Glyphs = {
 		BrainFreeze = "F",
 		YapCannon = "Y",
 		SigmaSniper = "S",
+		BagChaser = "$",
+		SusRadar = "?",
+		AuraFarmer = "A",
+		MewingTesla = "T",
 	},
 }
 
