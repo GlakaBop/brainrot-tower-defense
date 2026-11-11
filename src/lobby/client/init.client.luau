@@ -156,7 +156,7 @@ local towersBtn = UI.button({
 towersBtn.FontFace = Theme.FontHeavy
 
 local towersPanel = UI.panel({
-	AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromOffset(640, 460),
+	AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromOffset(640, 600),
 	Visible = false, ZIndex = 10, Parent = gui,
 }, { UI.padding(18) })
 UI.label({ Size = UDim2.new(1, -40, 0, 32), Text = "Towers", FontFace = Theme.FontHeavy, TextSize = 28,
@@ -166,7 +166,7 @@ local loadoutLbl = UI.label({ Position = UDim2.fromOffset(0, 32), Size = UDim2.n
 local closeTowers = UI.button({ Size = UDim2.fromOffset(32, 32), Position = UDim2.new(1, -32, 0, 0), Color = C.PanelLight, Text = "X", Parent = towersPanel })
 
 local towerGrid = UI.new("Frame", {
-	Position = UDim2.fromOffset(0, 64), Size = UDim2.new(1, 0, 1, -64), BackgroundTransparency = 1, Parent = towersPanel,
+	Position = UDim2.fromOffset(0, 64), Size = UDim2.new(1, 0, 0, 354), BackgroundTransparency = 1, Parent = towersPanel,
 }, {
 	UI.new("UIGridLayout", { CellSize = UDim2.fromOffset(140, 172), CellPadding = UDim2.fromOffset(10, 10),
 		HorizontalAlignment = Enum.HorizontalAlignment.Center, SortOrder = Enum.SortOrder.LayoutOrder }),
@@ -196,6 +196,50 @@ for i, kind in Config.TowerOrder do
 	towerCards[kind] = { card = card, stroke = cardStroke, status = status, icon = iconFrame }
 end
 
+-- Hotbar preview: exactly what the bottom of the screen will look like in a match.
+UI.new("Frame", { Position = UDim2.fromOffset(0, 426), Size = UDim2.new(1, 0, 0, 1), BackgroundColor3 = C.Stroke,
+	BackgroundTransparency = 0.88, BorderSizePixel = 0, Parent = towersPanel })
+UI.label({ Position = UDim2.fromOffset(0, 434), Size = UDim2.new(1, 0, 0, 18), Text = "YOUR MATCH HOTBAR  ·  click a slot to unequip",
+	FontFace = Theme.FontBold, TextSize = 13, TextColor3 = C.SubText, TextXAlignment = Enum.TextXAlignment.Left, Parent = towersPanel })
+local hotbarPreview = UI.new("Frame", {
+	AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, 0), Size = UDim2.fromOffset(0, 104),
+	AutomaticSize = Enum.AutomaticSize.X, BackgroundTransparency = 1, Parent = towersPanel,
+}, { UI.list(Enum.FillDirection.Horizontal, 8, Enum.HorizontalAlignment.Center) })
+
+local lastPreviewKey = nil
+local function refreshHotbarPreview(loadout)
+	for _, child in hotbarPreview:GetChildren() do
+		if child:IsA("GuiObject") then child:Destroy() end
+	end
+	for slot = 1, Config.LoadoutSize do
+		local kind = loadout[slot]
+		local def = kind and Config.Towers[kind]
+		local card = UI.new("TextButton", { Size = UDim2.fromOffset(96, 104), BackgroundColor3 = C.Panel, BackgroundTransparency = 0.1,
+			AutoButtonColor = false, Text = "", LayoutOrder = slot, Parent = hotbarPreview }, { UI.corner(12) })
+		local badge = UI.new("Frame", { Position = UDim2.fromOffset(5, 5), Size = UDim2.fromOffset(18, 18), BackgroundColor3 = C.PanelLight,
+			ZIndex = 2, Parent = card }, { UI.corner(5) })
+		UI.label({ Size = UDim2.fromScale(1, 1), Text = tostring(slot), FontFace = Theme.FontBold, TextSize = 12, TextColor3 = C.SubText,
+			ZIndex = 2, Parent = badge })
+		if def then
+			UI.stroke().Parent = card
+			UI.icon({ Size = UDim2.fromOffset(48, 48), Position = UDim2.new(0.5, 0, 0, 8), AnchorPoint = Vector2.new(0.5, 0),
+				Color = def.Color, Image = Theme.Icons.Towers[kind], Glyph = Theme.Glyphs.Towers[kind], Parent = card })
+			UI.label({ Position = UDim2.fromOffset(3, 58), Size = UDim2.new(1, -6, 0, 18), Text = def.DisplayName, TextSize = 13,
+				FontFace = Theme.FontBold, TextTruncate = Enum.TextTruncate.AtEnd, Parent = card })
+			UI.label({ Position = UDim2.fromOffset(0, 78), Size = UDim2.new(1, 0, 0, 18), Text = "$" .. def.Levels[1].Cost,
+				FontFace = Theme.FontHeavy, TextSize = 15, TextColor3 = C.Gold, Parent = card })
+			card.Activated:Connect(function()
+				local ok, msg = loadoutRemote:InvokeServer(kind)
+				toast(msg, ok)
+			end)
+		else
+			UI.stroke(C.Stroke, 0.7, 1.5).Parent = card
+			card.BackgroundTransparency = 0.6
+			UI.label({ Size = UDim2.fromScale(1, 1), Text = "Empty", TextSize = 14, TextColor3 = C.SubText, Parent = card })
+		end
+	end
+end
+
 local function refreshLoadout()
 	local owned, equipped = {}, {}
 	for _, k in string.split(player:GetAttribute("OwnedTowers") or "", ",") do owned[k] = true end
@@ -203,6 +247,15 @@ local function refreshLoadout()
 	for _, k in loadout do equipped[k] = true end
 	local count = 0
 	for _, k in loadout do if k ~= "" then count += 1 end end
+	local loadoutKey = player:GetAttribute("Loadout") or ""
+	if loadoutKey ~= lastPreviewKey then -- only rebuild when the loadout actually changes
+		lastPreviewKey = loadoutKey
+		local cleanLoadout = {}
+		for _, k in loadout do
+			if Config.Towers[k] then table.insert(cleanLoadout, k) end
+		end
+		refreshHotbarPreview(cleanLoadout)
+	end
 	loadoutLbl.Text = string.format("Equipped %d / %d  ·  Click a tower to equip or unequip it", count, Config.LoadoutSize)
 
 	for kind, c in towerCards do

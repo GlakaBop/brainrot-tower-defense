@@ -138,26 +138,63 @@ local function makeHealthBar(body, def, top)
 	fill.BackgroundColor3 = Color3.fromRGB(80, 255, 80)
 	fill.BorderSizePixel = 0
 	fill.Parent = barBack
+	local shieldFill = nil
+	if def.Shield then -- blue bar drawn over the health bar while the shield is up
+		shieldFill = Instance.new("Frame")
+		shieldFill.Size = UDim2.fromScale(1, 1)
+		shieldFill.BackgroundColor3 = Color3.fromRGB(90, 200, 255)
+		shieldFill.BorderSizePixel = 0
+		shieldFill.ZIndex = 2
+		shieldFill.Parent = barBack
+	end
 	bb.Parent = body
-	return fill
+	return fill, shieldFill
 end
 
-local function spawnEnemy(kind)
+-- startD lets enemies spawn mid-path (boss minions, splitter children).
+local function spawnEnemy(kind, startD)
 	local def = Config.Enemies[kind]
+	if not def then return end
+	startD = startD or 0
 	local halfHeight = (if def.Shape == "Ball" then def.Size.X else def.Size.Y) / 2
 	local height = halfHeight + 0.1 + (if def.Flying then Config.FlyingHeight else 0)
-	local pos, dir = pointAt(0)
+	local pos, dir = pointAt(startD)
 	local cf = CFrame.lookAt(pos, pos + dir) + Vector3.new(0, height, 0)
 
 	local model, body, top = EnemyLooks.build(def, cf)
-	local fill = makeHealthBar(body, def, top)
+	local fill, shieldFill = makeHealthBar(body, def, top)
+
+	local scale = Config.HealthScale(math.max(currentWave, 1)) * difficulty.HealthMult
+	local maxHp = math.floor(def.Health * scale + 0.5)
+	local maxShield = if def.Shield then math.floor(def.Shield * scale + 0.5) else 0
+	local bubble = nil
+	if maxShield > 0 then
+		bubble = Util.makePart({
+			Name = "Shield", Shape = Enum.PartType.Ball, Size = Vector3.one * (math.max(def.Size.X, def.Size.Y) * 1.5),
+			CFrame = cf, Color = Color3.fromRGB(90, 200, 255), Material = Enum.Material.ForceField, Transparency = 0.2,
+			Anchored = false, CanCollide = false, CanQuery = false, Massless = true,
+		}, model)
+		Util.weld(body, bubble)
+	end
+	if def.Hidden then -- see-through until a Sus Radar reveals it
+		for _, part in model:GetDescendants() do
+			if part:IsA("BasePart") then part.Transparency = math.max(part.Transparency, 0.75) end
+		end
+	end
 	model.Parent = enemiesFolder
 
-	local maxHp = math.floor(def.Health * Config.HealthScale(math.max(currentWave, 1)) * difficulty.HealthMult + 0.5)
+	local now = os.clock()
+	local timers = {}
+	for i, ability in def.Abilities or {} do
+		timers[i] = now + (ability.Every or 0)
+	end
 	table.insert(enemies, {
-		model = model, body = body, def = def, fill = fill, height = height, speed = def.Speed * difficulty.SpeedMult,
-		hp = maxHp, maxHp = maxHp, d = 0, alive = true, seed = math.random() * 10,
-		slowUntil = 0, slowMult = 1, tinted = false,
+		model = model, body = body, def = def, fill = fill, shieldFill = shieldFill, bubble = bubble,
+		height = height, speed = def.Speed * difficulty.SpeedMult,
+		hp = maxHp, maxHp = maxHp, shield = maxShield, maxShield = maxShield,
+		d = startD, alive = true, seed = math.random() * 10,
+		slowUntil = 0, slowMult = 1, tinted = false, baseColor = def.Color,
+		abilityTimers = timers, nextHeal = now + (if def.Heal then def.Heal.Interval else 0), raging = false,
 	})
 	if def.IsBoss then
 		Effects.sound("WaveStart", nil, 0.6, true)
@@ -166,7 +203,21 @@ end
 
 local function damageEnemy(e, amount)
 	if not e.alive then return end
-	e.hp -= math.max(1, amount - (e.def.Armor or 0))
+	amount = math.max(1, amount - (e.def.Armor or 0))
+	if e.shield > 0 then -- shield soaks damage first
+		local absorbed = math.min(e.shield, amount)
+		e.shield -= absorbed
+		amount -= absorbed
+		e.shieldFill.Size = UDim2.fromScale(e.shield / e.maxShield, 1)
+		if e.shield <= 0 and e.bubble then
+			Effects.pop(e.bubble.Position, Color3.fromRGB(90, 200, 255), e.def.Size.X * 1.2)
+			Effects.sound("Pop", e.bubble.Position, 0.6, true)
+			e.bubble:Destroy()
+			e.bubble = nil
+		end
+		if amount <= 0 then return end
+	end
+	e.hp -= amount
 	e.fill.Size = UDim2.fromScale(math.max(e.hp, 0) / e.maxHp, 1)
 	if e.hp <= 0 then
 		e.alive = false
@@ -181,6 +232,11 @@ local function damageEnemy(e, amount)
 			Effects.sound("Pop", pos, 0.9 + math.random() * 0.4)
 		end
 		e.model:Destroy()
+		if e.def.SplitInto then -- splitter: burst into smaller enemies right where it died
+			for i = 1, e.def.SplitCount or 2 do
+				spawnEnemy(e.def.SplitInto, math.max(0, e.d - (i - 1) * 1.5))
+			end
+		end
 	end
 end
 
@@ -248,6 +304,7 @@ local function buildTowerVisual(tw)
 	model.PrimaryPart = towerBase
 	model:SetAttribute("Level", lvl)
 	tw.muzzle = headPos
+	tw.head = head
 end
 
 local function placeTower(player, kind, pos)
@@ -360,6 +417,18 @@ end
 makeRemote("PlaceTower", placeTower)
 makeRemote("TowerAction", towerAction)
 
+-- Hidden enemies can only be targeted inside the range of a tower with RevealsHidden (Sus Radar).
+local function isRevealed(pos)
+	for _, tw in towers do
+		if tw.def.RevealsHidden then
+			local r = towerStats(tw).Range
+			local dx, dz = pos.X - tw.pos.X, pos.Z - tw.pos.Z
+			if dx * dx + dz * dz <= r * r then return true end
+		end
+	end
+	return false
+end
+
 local function findTarget(tw, s)
 	local mode = Config.TargetModes[tw.targetIndex]
 	local r2 = s.Range * s.Range
@@ -369,7 +438,7 @@ local function findTarget(tw, s)
 			local p = e.body.Position
 			local dx, dz = p.X - tw.pos.X, p.Z - tw.pos.Z
 			local dist2 = dx * dx + dz * dz
-			if dist2 <= r2 then
+			if dist2 <= r2 and (not e.def.Hidden or isRevealed(p)) then
 				local score
 				if mode == "First" then
 					score = e.d
@@ -444,6 +513,63 @@ local function shoot(tw, s, e, damage)
 	end
 end
 
+---------------------------------------------------------------- enemy & boss abilities
+local STUN_COLOR = Color3.fromRGB(110, 110, 125)
+
+local function stunTowers(center, radius, duration)
+	local untilTime = os.clock() + duration
+	local flat = Vector3.new(center.X, GROUND_Y, center.Z)
+	for _, tw in towers do
+		if (tw.pos - flat).Magnitude <= radius then
+			tw.stunnedUntil = math.max(tw.stunnedUntil or 0, untilTime)
+			if tw.head and tw.head.Parent then
+				tw.head.Color = STUN_COLOR
+				tw.head.Material = Enum.Material.Slate
+			end
+			Effects.floatText(tw.muzzle, "STUNNED", Color3.fromRGB(200, 200, 255))
+		end
+	end
+	Effects.pop(center, Color3.fromRGB(200, 200, 255), radius * 0.6)
+	Effects.sound("Explosion", center, 1.6, true)
+end
+
+local function updateEnemyAbilities(e, now)
+	local def = e.def
+	if def.Heal and now >= e.nextHeal then -- healer: pulse that restores nearby enemies
+		e.nextHeal = now + def.Heal.Interval
+		local pos = e.body.Position
+		Effects.pop(pos, Color3.fromRGB(120, 255, 180), def.Heal.Radius * 0.5)
+		for _, other in enemies do
+			if other.alive and other.hp < other.maxHp and (other.body.Position - pos).Magnitude <= def.Heal.Radius then
+				other.hp = math.min(other.maxHp, other.hp + other.maxHp * def.Heal.Percent)
+				other.fill.Size = UDim2.fromScale(other.hp / other.maxHp, 1)
+			end
+		end
+	end
+	for i, ability in def.Abilities or {} do
+		if ability.Type == "Rage" then
+			if not e.raging and e.hp / e.maxHp <= ability.Below then
+				e.raging = true
+				e.speed *= ability.SpeedMult
+				e.baseColor = Color3.fromRGB(255, 40, 40)
+				e.body.Color = e.baseColor
+				Effects.floatText(e.body.Position + Vector3.new(0, def.Size.Y, 0), "ENRAGED!", Color3.fromRGB(255, 60, 60))
+				Effects.sound("WaveStart", nil, 0.5, true)
+			end
+		elseif now >= e.abilityTimers[i] then
+			e.abilityTimers[i] = now + ability.Every
+			if ability.Type == "Stun" then
+				stunTowers(e.body.Position, ability.Radius, ability.Duration)
+			elseif ability.Type == "Summon" then
+				for k = 1, ability.Count do
+					spawnEnemy(ability.Enemy, math.max(0, e.d - k * 2))
+				end
+				Effects.floatText(e.body.Position + Vector3.new(0, def.Size.Y, 0), "SUMMON!", Color3.fromRGB(255, 200, 80))
+			end
+		end
+	end
+end
+
 -- Pays every Bag Chaser's owner at the end of a wave.
 local function payFarms()
 	for _, tw in towers do
@@ -466,11 +592,12 @@ RunService.Heartbeat:Connect(function(dt)
 	for i = #enemies, 1, -1 do
 		local e = enemies[i]
 		if e.alive then
+			updateEnemyAbilities(e, t)
 			local slowed = t < e.slowUntil
 			e.d += e.speed * (if slowed then e.slowMult else 1) * dt
 			if slowed ~= e.tinted then
 				e.tinted = slowed
-				e.body.Color = if slowed then e.def.Color:Lerp(ICE_COLOR, 0.6) else e.def.Color
+				e.body.Color = if slowed then e.baseColor:Lerp(ICE_COLOR, 0.6) else e.baseColor
 			end
 			if e.d >= pathLength then
 				e.alive = false
@@ -494,7 +621,15 @@ RunService.Heartbeat:Connect(function(dt)
 
 	for _, tw in towers do
 		local kindType = tw.def.Type
-		if kindType ~= "Farm" and kindType ~= "Support" then
+		local stunned = tw.stunnedUntil and t < tw.stunnedUntil
+		if tw.stunnedUntil and not stunned then -- stun wore off: restore the glowing head
+			tw.stunnedUntil = nil
+			if tw.head and tw.head.Parent then
+				tw.head.Color = tw.def.Color
+				tw.head.Material = Enum.Material.Neon
+			end
+		end
+		if not stunned and kindType ~= "Farm" and kindType ~= "Support" then
 			tw.cooldown -= dt
 			if tw.cooldown <= 0 then
 				local s = towerStats(tw)

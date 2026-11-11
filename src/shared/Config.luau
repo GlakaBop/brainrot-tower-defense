@@ -178,12 +178,58 @@ Config.Enemies = {
 		Health = 400, Speed = 4, Reward = 100, Damage = 10, Armor = 2, IsBoss = true,
 		Size = Vector3.new(8, 8, 8), Color = Color3.fromRGB(255, 60, 200),
 		Shape = "Ball", Accessories = { "Brain", "Crown", "Tongue", "Aura" },
+		-- Stun: freezes towers within Radius for Duration seconds. Summon: spawns minions behind it.
+		Abilities = {
+			{ Type = "Stun", Every = 8, Radius = 16, Duration = 2.5 },
+			{ Type = "Summon", Every = 10, Enemy = "Noodle", Count = 3 },
+		},
 	},
 	GigaBoss = {
 		DisplayName = "GIGA BRAINROT",
 		Health = 2500, Speed = 3, Reward = 500, Damage = 20, Armor = 5, IsBoss = true,
 		Size = Vector3.new(12, 12, 12), Color = Color3.fromRGB(255, 30, 30),
 		Accessories = { "Horns", "Sunglasses", "GoldChain", "Crown", "Aura" },
+		-- Rage: below Below (fraction of health) it speeds up by SpeedMult.
+		Abilities = {
+			{ Type = "Stun", Every = 7, Radius = 20, Duration = 3 },
+			{ Type = "Summon", Every = 9, Enemy = "Zoomer", Count = 4 },
+			{ Type = "Rage", Below = 0.5, SpeedMult = 1.6 },
+		},
+	},
+
+	-- Step 7 enemies --------------------------------------------------
+	-- SplitInto: on death, splits into SplitCount of another enemy.
+	Splitter = {
+		DisplayName = "Split Splat",
+		Health = 24, Speed = 7, Reward = 6, Damage = 2,
+		Size = Vector3.new(3.5, 3.5, 3.5), Color = Color3.fromRGB(255, 90, 90),
+		Shape = "Ball", Accessories = { "Tongue" }, SplitInto = "Mini", SplitCount = 3,
+	},
+	Mini = {
+		DisplayName = "Lil Splat",
+		Health = 5, Speed = 11, Reward = 2, Damage = 1,
+		Size = Vector3.new(1.8, 1.8, 1.8), Color = Color3.fromRGB(255, 150, 150), Shape = "Ball",
+	},
+	-- Heal: every Interval seconds, heals enemies within Radius by Percent of their max health.
+	Healer = {
+		DisplayName = "Nurse Nugget",
+		Health = 28, Speed = 6, Reward = 10, Damage = 1,
+		Size = Vector3.new(3, 3.5, 3), Color = Color3.fromRGB(120, 255, 180),
+		Accessories = { "NurseHat" }, Heal = { Radius = 10, Percent = 0.06, Interval = 2 },
+	},
+	-- Shield: extra health that must be broken first (shown as a bubble + blue bar).
+	Shielded = {
+		DisplayName = "Bubble Boi",
+		Health = 25, Shield = 40, Speed = 6, Reward = 12, Damage = 2,
+		Size = Vector3.new(3.5, 3.5, 3.5), Color = Color3.fromRGB(90, 200, 255),
+		Shape = "Ball", Accessories = { "Sunglasses" },
+	},
+	-- Hidden: towers can only hit it inside a Sus Radar's range.
+	Ghost = {
+		DisplayName = "Sneaky Sus",
+		Health = 18, Speed = 10, Reward = 10, Damage = 2, Hidden = true,
+		Size = Vector3.new(3, 3, 3), Color = Color3.fromRGB(200, 200, 255),
+		Accessories = { "Sunglasses" },
 	},
 }
 
@@ -295,21 +341,21 @@ Config.Waves = {
 	{ { "Noodle", 8, 1 }, { "Zoomer", 5, 0.8 } },
 	{ { "Zoomer", 12, 0.6 } },
 	{ { "Noodle", 10, 0.8 }, { "Toast", 3, 2 } },
-	{ { "Flyer", 6, 1 }, { "Noodle", 8, 0.7 } },
-	{ { "Knight", 4, 2 }, { "Zoomer", 10, 0.5 } },
-	{ { "Toast", 6, 1.2 }, { "Flyer", 8, 0.8 } },
-	{ { "Knight", 8, 1.2 }, { "Zoomer", 15, 0.4 }, { "Flyer", 6, 0.8 } },
+	{ { "Flyer", 6, 1 }, { "Splitter", 4, 1.5 }, { "Noodle", 8, 0.7 } }, -- 6: splitters appear
+	{ { "Knight", 4, 2 }, { "Zoomer", 10, 0.5 }, { "Splitter", 5, 1 } },
+	{ { "Toast", 6, 1.2 }, { "Healer", 2, 2 }, { "Flyer", 8, 0.8 } }, -- 8: healers appear
+	{ { "Knight", 8, 1.2 }, { "Healer", 2, 1.5 }, { "Zoomer", 15, 0.4 }, { "Flyer", 6, 0.8 } },
 	{ { "Toast", 6, 1 }, { "Boss", 1, 0 } },
-	{ { "Noodle", 25, 0.4 }, { "Flyer", 10, 0.6 } },
-	{ { "Knight", 12, 1 }, { "Toast", 6, 1 } },
-	{ { "Zoomer", 30, 0.3 } },
-	{ { "Flyer", 20, 0.5 }, { "Knight", 8, 0.8 } },
-	{ { "Toast", 15, 0.8 }, { "Boss", 1, 0 } },
-	{ { "Knight", 20, 0.7 }, { "Flyer", 15, 0.4 } },
-	{ { "Zoomer", 40, 0.25 }, { "Toast", 10, 0.7 } },
-	{ { "Knight", 15, 0.6 }, { "Toast", 15, 0.6 }, { "Flyer", 20, 0.4 } },
-	{ { "Boss", 2, 6 }, { "Knight", 15, 0.6 } },
-	{ { "Toast", 20, 0.5 }, { "Flyer", 20, 0.4 }, { "GigaBoss", 1, 0 } },
+	{ { "Shielded", 6, 1.2 }, { "Noodle", 20, 0.4 }, { "Flyer", 10, 0.6 } }, -- 11: shields appear
+	{ { "Knight", 12, 1 }, { "Healer", 3, 1.5 }, { "Toast", 6, 1 } },
+	{ { "Ghost", 4, 1.5 }, { "Zoomer", 25, 0.3 } }, -- 13: hidden enemies appear (bring a Sus Radar!)
+	{ { "Flyer", 20, 0.5 }, { "Shielded", 8, 0.8 }, { "Knight", 8, 0.8 } },
+	{ { "Toast", 15, 0.8 }, { "Splitter", 8, 0.6 }, { "Boss", 1, 0 } },
+	{ { "Knight", 20, 0.7 }, { "Ghost", 8, 0.8 }, { "Flyer", 15, 0.4 } },
+	{ { "Zoomer", 35, 0.25 }, { "Healer", 4, 1 }, { "Toast", 10, 0.7 } },
+	{ { "Shielded", 15, 0.6 }, { "Toast", 15, 0.6 }, { "Ghost", 10, 0.6 }, { "Flyer", 20, 0.4 } },
+	{ { "Boss", 2, 6 }, { "Splitter", 12, 0.5 }, { "Knight", 15, 0.6 } },
+	{ { "Toast", 20, 0.5 }, { "Shielded", 10, 0.5 }, { "Flyer", 20, 0.4 }, { "GigaBoss", 1, 0 } },
 }
 
 function Config.WaveBonus(wave: number): number

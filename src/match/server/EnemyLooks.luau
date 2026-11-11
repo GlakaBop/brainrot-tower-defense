@@ -186,6 +186,17 @@ function Accessories.Horns(ctx)
 	end
 end
 
+function Accessories.NurseHat(ctx)
+	local s = ctx.s
+	local w, h = s.X * 0.6, s.Y * 0.28
+	local hatCf = ctx.cf * CFrame.new(0, ctx.top + h / 2, 0)
+	attach(ctx, { Name = "Hat", Size = Vector3.new(w, h, s.Z * 0.5), CFrame = hatCf, Color = Color3.new(1, 1, 1) })
+	local red = Color3.fromRGB(230, 40, 50)
+	attach(ctx, { Name = "Cross", Size = Vector3.new(w * 0.45, h * 0.18, 0.12), CFrame = hatCf * CFrame.new(0, 0, -s.Z * 0.25 - 0.05), Color = red })
+	attach(ctx, { Name = "Cross", Size = Vector3.new(w * 0.15, h * 0.6, 0.12), CFrame = hatCf * CFrame.new(0, 0, -s.Z * 0.25 - 0.05), Color = red })
+	ctx.top += h
+end
+
 function Accessories.Aura(ctx)
 	local pe = Instance.new("ParticleEmitter")
 	pe.Color = ColorSequence.new(ctx.def.Color)
