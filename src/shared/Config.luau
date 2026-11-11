@@ -41,8 +41,71 @@ function Config.GetDifficulty(id: string?)
 	return Config.Difficulties[2] -- Normal
 end
 
--- Towers everyone owns from the start; others are bought in the lobby shop (UnlockPrice on each tower).
+-- Towers everyone owns from the start; the rest come from crates.
 Config.StarterTowers = { "RizzBlaster" }
+
+-- Rarities, lowest to highest. Each tower has a Rarity. Refund = coins for a duplicate.
+Config.Rarities = {
+	{ Id = "Common", Color = Color3.fromRGB(190, 190, 200), Refund = 15 },
+	{ Id = "Rare", Color = Color3.fromRGB(80, 160, 255), Refund = 40 },
+	{ Id = "Epic", Color = Color3.fromRGB(180, 90, 255), Refund = 100 },
+	{ Id = "Legendary", Color = Color3.fromRGB(255, 190, 40), Refund = 250 },
+	{ Id = "Mythic", Color = Color3.fromRGB(255, 60, 120), Refund = 600 },
+}
+
+function Config.GetRarity(id: string)
+	for i, r in Config.Rarities do
+		if r.Id == id then return r, i end
+	end
+	return Config.Rarities[1], 1
+end
+
+-- Crates. Weights are relative chances per rarity (rarities with no towers are skipped automatically).
+Config.Crates = {
+	{
+		Id = "Basic", DisplayName = "Basic Crate", Price = 100, Color = Color3.fromRGB(90, 160, 255),
+		Weights = { Common = 55, Rare = 32, Epic = 10, Legendary = 2.5, Mythic = 0.5 },
+	},
+	{
+		Id = "Brainrot", DisplayName = "Brainrot Crate", Price = 350, Color = Color3.fromRGB(255, 60, 200),
+		Weights = { Common = 0, Rare = 50, Epic = 32, Legendary = 14, Mythic = 4 },
+	},
+}
+
+-- Pity: after this many crates in a row without Legendary or better, the next one is guaranteed Legendary+.
+Config.PityThreshold = 30
+
+function Config.GetCrate(id: string)
+	for _, c in Config.Crates do
+		if c.Id == id then return c end
+	end
+	return nil
+end
+
+-- Real chance (0-1) of each rarity from a crate, after skipping rarities that have no towers.
+function Config.CrateOdds(crate)
+	local hasTower = {}
+	for _, def in Config.Towers do
+		hasTower[def.Rarity or "Common"] = true
+	end
+	local total = 0
+	for _, r in Config.Rarities do
+		if hasTower[r.Id] then total += crate.Weights[r.Id] or 0 end
+	end
+	local odds = {}
+	for _, r in Config.Rarities do
+		odds[r.Id] = if hasTower[r.Id] and total > 0 then (crate.Weights[r.Id] or 0) / total else 0
+	end
+	return odds
+end
+
+function Config.TowersOfRarity(rarityId: string)
+	local list = {}
+	for _, kind in Config.TowerOrder do
+		if (Config.Towers[kind].Rarity or "Common") == rarityId then table.insert(list, kind) end
+	end
+	return list
+end
 
 Config.StartingCash = 250
 Config.StartingLives = 20
@@ -128,7 +191,7 @@ Config.Enemies = {
 -- Optional per-level stats: Splash (radius), Slow (speed multiplier), SlowTime (seconds).
 Config.Towers = {
 	RizzBlaster = {
-		DisplayName = "Rizz Blaster",
+		DisplayName = "Rizz Blaster", Rarity = "Common",
 		Description = "Reliable single-target laser.",
 		Color = Color3.fromRGB(255, 230, 60), HeadShape = "Ball", HitsFlying = true,
 		Sound = "Laser", Pitch = 1.2,
@@ -140,7 +203,7 @@ Config.Towers = {
 	},
 	YapCannon = {
 		DisplayName = "Yap Cannon",
-		Description = "Splash damage. Can't hit flying.", UnlockPrice = 300,
+		Description = "Splash damage. Can't hit flying.", Rarity = "Epic",
 		Color = Color3.fromRGB(255, 120, 40), HeadShape = "Block", HitsFlying = false,
 		Sound = "Explosion", Pitch = 1.3,
 		Levels = {
@@ -151,7 +214,7 @@ Config.Towers = {
 	},
 	BrainFreeze = {
 		DisplayName = "Brain Freeze",
-		Description = "Slows enemies down.", UnlockPrice = 150,
+		Description = "Slows enemies down.", Rarity = "Rare",
 		Color = Color3.fromRGB(120, 200, 255), HeadShape = "Cylinder", HitsFlying = true,
 		Sound = "Laser", Pitch = 1.8,
 		Levels = {
@@ -162,7 +225,7 @@ Config.Towers = {
 	},
 	SigmaSniper = {
 		DisplayName = "Sigma Sniper",
-		Description = "Huge range, huge damage, slow.", UnlockPrice = 500,
+		Description = "Huge range, huge damage, slow.", Rarity = "Legendary",
 		Color = Color3.fromRGB(200, 80, 255), HeadShape = "Ball", HitsFlying = true,
 		Sound = "Laser", Pitch = 0.6,
 		Levels = {

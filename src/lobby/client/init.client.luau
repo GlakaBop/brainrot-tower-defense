@@ -10,7 +10,8 @@ local C = Theme.Colors
 
 local player = Players.LocalPlayer
 local queueRemote = ReplicatedStorage:WaitForChild("QueueAction")
-local buyRemote = ReplicatedStorage:WaitForChild("BuyTower")
+local crateRemote = ReplicatedStorage:WaitForChild("OpenCrate")
+local CrateOpening = require(script.CrateOpening)
 
 local gui = UI.screen("LobbyHud", player:WaitForChild("PlayerGui"))
 local toast = UI.toast(gui)
@@ -35,70 +36,111 @@ local winsLbl = statPill(2, nil, "W", C.Wave, 120)
 ---------------------------------------------------------------- shop button + panel
 local shopBtn = UI.button({
 	Name = "ShopButton", Size = UDim2.fromOffset(150, 52), Position = UDim2.new(0, 16, 1, -16), AnchorPoint = Vector2.new(0, 1),
-	Color = C.Upgrade, Text = "SHOP", TextSize = 24, Radius = 14, Parent = gui,
+	Color = C.Gold:Lerp(C.Sell, 0.35), Text = "CRATES", TextSize = 24, Radius = 14, Parent = gui,
 })
 shopBtn.FontFace = Theme.FontHeavy
 
 local shop = UI.panel({
-	AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromOffset(620, 400),
+	AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromOffset(640, 440),
 	Visible = false, ZIndex = 10, Parent = gui,
 }, { UI.padding(18) })
-UI.label({ Size = UDim2.new(1, -40, 0, 32), Text = "Tower Shop", FontFace = Theme.FontHeavy, TextSize = 28,
+UI.label({ Size = UDim2.new(1, -40, 0, 32), Text = "Crates", FontFace = Theme.FontHeavy, TextSize = 28,
 	TextXAlignment = Enum.TextXAlignment.Left, Parent = shop })
-UI.label({ Position = UDim2.fromOffset(0, 32), Size = UDim2.new(1, 0, 0, 20), TextSize = 15, TextColor3 = C.SubText,
-	TextXAlignment = Enum.TextXAlignment.Left, Text = "Unlock towers with " .. Config.CurrencyName .. " earned from matches.", Parent = shop })
+local pityLbl = UI.label({ Position = UDim2.fromOffset(0, 32), Size = UDim2.new(1, -40, 0, 20), TextSize = 15, TextColor3 = C.SubText,
+	TextXAlignment = Enum.TextXAlignment.Left, Parent = shop })
 local closeShop = UI.button({ Size = UDim2.fromOffset(32, 32), Position = UDim2.new(1, -32, 0, 0), Color = C.PanelLight, Text = "X", Parent = shop })
 
-local grid = UI.new("Frame", {
+local crateRow = UI.new("Frame", {
 	Position = UDim2.fromOffset(0, 66), Size = UDim2.new(1, 0, 1, -66), BackgroundTransparency = 1, Parent = shop,
-}, {
-	UI.new("UIGridLayout", { CellSize = UDim2.fromOffset(136, 290), CellPadding = UDim2.fromOffset(12, 12), SortOrder = Enum.SortOrder.LayoutOrder }),
-})
+}, { UI.list(Enum.FillDirection.Horizontal, 16, Enum.HorizontalAlignment.Center) })
 
-local shopCards = {}
-for i, kind in Config.TowerOrder do
-	local def = Config.Towers[kind]
-	local card = UI.new("Frame", { BackgroundColor3 = C.PanelLight, BackgroundTransparency = 0.3, LayoutOrder = i, Parent = grid },
-		{ UI.corner(12), UI.padding(10) })
-	local cardStroke = UI.stroke(def.Color, 0.6, 2)
-	cardStroke.Parent = card
-	UI.icon({ Size = UDim2.fromOffset(80, 80), Position = UDim2.new(0.5, 0, 0, 6), AnchorPoint = Vector2.new(0.5, 0),
-		Color = def.Color, Image = Theme.Icons.Towers[kind], Glyph = Theme.Glyphs.Towers[kind], Parent = card })
-	UI.label({ Position = UDim2.fromOffset(0, 96), Size = UDim2.new(1, 0, 0, 22), Text = def.DisplayName,
-		FontFace = Theme.FontHeavy, TextSize = 17, Parent = card })
-	UI.label({ Position = UDim2.fromOffset(0, 122), Size = UDim2.new(1, 0, 0, 60), Text = def.Description or "",
-		TextSize = 14, TextColor3 = C.SubText, TextWrapped = true, TextYAlignment = Enum.TextYAlignment.Top, Parent = card })
-	local lvl = def.Levels[1]
-	UI.label({ Position = UDim2.fromOffset(0, 186), Size = UDim2.new(1, 0, 0, 40), RichText = true, TextSize = 13,
-		TextColor3 = C.SubText, TextYAlignment = Enum.TextYAlignment.Top,
-		Text = string.format("DMG %d  ·  RNG %d\nPlace cost $%d", lvl.Damage, lvl.Range, lvl.Cost), Parent = card })
-	local buy = UI.button({ Size = UDim2.new(1, 0, 0, 40), Position = UDim2.new(0, 0, 1, -40), Color = C.Upgrade, TextSize = 17, Parent = card })
-	buy.Activated:Connect(function()
-		local ok, msg = buyRemote:InvokeServer(kind)
-		toast(msg, ok)
+-- Odds popup
+local oddsPanel = UI.panel({
+	AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromOffset(360, 0),
+	AutomaticSize = Enum.AutomaticSize.Y, Visible = false, ZIndex = 20, Parent = gui,
+}, { UI.padding(16), UI.list(nil, 6) })
+local oddsTitle = UI.label({ Size = UDim2.new(1, 0, 0, 28), FontFace = Theme.FontHeavy, TextSize = 22,
+	TextXAlignment = Enum.TextXAlignment.Left, LayoutOrder = 0, Parent = oddsPanel })
+local oddsRows = UI.new("Frame", { Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y,
+	BackgroundTransparency = 1, LayoutOrder = 1, Parent = oddsPanel }, { UI.list(nil, 6) })
+local oddsClose = UI.button({ Size = UDim2.new(1, 0, 0, 36), Color = C.PanelLight, Text = "Close", LayoutOrder = 2, Parent = oddsPanel })
+oddsClose.Activated:Connect(function() oddsPanel.Visible = false end)
+
+local function showOdds(crate)
+	oddsTitle.Text = crate.DisplayName .. " odds"
+	for _, child in oddsRows:GetChildren() do
+		if child:IsA("Frame") then child:Destroy() end
+	end
+	local odds = Config.CrateOdds(crate)
+	for i, r in Config.Rarities do
+		local towers = Config.TowersOfRarity(r.Id)
+		if odds[r.Id] > 0 then
+			local names = {}
+			for _, kind in towers do table.insert(names, Config.Towers[kind].DisplayName) end
+			local row = UI.new("Frame", { Size = UDim2.new(1, 0, 0, 40), BackgroundColor3 = C.PanelLight, LayoutOrder = i, Parent = oddsRows },
+				{ UI.corner(8), UI.padding(10, 4) })
+			UI.label({ Size = UDim2.new(0.6, 0, 0, 18), Text = r.Id, FontFace = Theme.FontHeavy, TextSize = 16,
+				TextColor3 = r.Color, TextXAlignment = Enum.TextXAlignment.Left, Parent = row })
+			UI.label({ Position = UDim2.fromOffset(0, 16), Size = UDim2.new(1, -70, 0, 16), Text = table.concat(names, ", "),
+				TextSize = 13, TextColor3 = C.SubText, TextXAlignment = Enum.TextXAlignment.Left,
+				TextTruncate = Enum.TextTruncate.AtEnd, Parent = row })
+			UI.label({ AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.fromScale(1, 0.5), Size = UDim2.fromOffset(70, 20),
+				Text = string.format("%.1f%%", odds[r.Id] * 100), FontFace = Theme.FontBold, TextSize = 17,
+				TextXAlignment = Enum.TextXAlignment.Right, Parent = row })
+		end
+	end
+	oddsPanel.Visible = true
+end
+
+local crateButtons = {}
+local busy = false
+
+for i, crate in Config.Crates do
+	local card = UI.new("Frame", { Size = UDim2.fromOffset(280, 334), BackgroundColor3 = C.PanelLight, BackgroundTransparency = 0.3,
+		LayoutOrder = i, Parent = crateRow }, { UI.corner(14), UI.padding(14) })
+	UI.stroke(crate.Color, 0.3, 2.5).Parent = card
+	local art = CrateOpening.crateArt(crate, UDim2.fromOffset(150, 150), card)
+	art.AnchorPoint = Vector2.new(0.5, 0)
+	art.Position = UDim2.new(0.5, 0, 0, 4)
+	UI.label({ Position = UDim2.fromOffset(0, 162), Size = UDim2.new(1, 0, 0, 28), Text = crate.DisplayName,
+		FontFace = Theme.FontHeavy, TextSize = 24, TextColor3 = crate.Color, Parent = card })
+	local odds = Config.CrateOdds(crate)
+	local best = ""
+	for _, r in Config.Rarities do
+		if odds[r.Id] > 0 then best = string.format("%s %.1f%%", r.Id, odds[r.Id] * 100) end
+	end
+	UI.label({ Position = UDim2.fromOffset(0, 192), Size = UDim2.new(1, 0, 0, 20), Text = "Best drop: " .. best,
+		TextSize = 14, TextColor3 = C.SubText, Parent = card })
+	local oddsBtn = UI.button({ Position = UDim2.new(0, 0, 1, -98), Size = UDim2.new(1, 0, 0, 34), Color = C.Target,
+		Text = "View odds", TextSize = 16, Parent = card })
+	oddsBtn.Activated:Connect(function() showOdds(crate) end)
+	local openBtn = UI.button({ Position = UDim2.new(0, 0, 1, -54), Size = UDim2.new(1, 0, 0, 54), Color = C.Upgrade,
+		Text = "OPEN  ·  " .. crate.Price .. " " .. Config.CurrencyName, TextSize = 19, Parent = card })
+	openBtn.FontFace = Theme.FontHeavy
+	openBtn.Activated:Connect(function()
+		if busy then return end
+		busy = true
+		local ok, result = crateRemote:InvokeServer(crate.Id)
+		if ok then
+			shop.Visible = false
+			CrateOpening.play(gui, crate, result)
+			shop.Visible = true
+		else
+			toast(result, false)
+		end
+		busy = false
 	end)
-	shopCards[kind] = { buy = buy, stroke = cardStroke }
+	crateButtons[crate.Id] = { button = openBtn, crate = crate }
 end
 
 local function refreshShop()
-	local owned = {}
-	for _, k in string.split(player:GetAttribute("OwnedTowers") or "", ",") do owned[k] = true end
 	local coins = player:GetAttribute("Coins") or 0
-	for kind, c in shopCards do
-		local def = Config.Towers[kind]
-		if owned[kind] then
-			c.buy.Text = "OWNED"
-			UI.setButtonColor(c.buy, C.Disabled)
-			c.stroke.Transparency = 0.2
-		elseif def.UnlockPrice then
-			c.buy.Text = def.UnlockPrice .. " " .. Config.CurrencyName
-			UI.setButtonColor(c.buy, if coins >= def.UnlockPrice then C.Upgrade else C.Disabled)
-			c.stroke.Transparency = 0.6
-		else
-			c.buy.Text = "Locked"
-			UI.setButtonColor(c.buy, C.Disabled)
-		end
+	for _, c in crateButtons do
+		UI.setButtonColor(c.button, if coins >= c.crate.Price then C.Upgrade else C.Disabled)
 	end
+	local pity = player:GetAttribute("Pity") or 0
+	pityLbl.Text = string.format("Guaranteed Legendary in %d crates  ·  Duplicates give %s back",
+		math.max(Config.PityThreshold - pity, 1), Config.CurrencyName)
 end
 
 shopBtn.Activated:Connect(function() shop.Visible = not shop.Visible end)

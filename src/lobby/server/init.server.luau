@@ -323,17 +323,73 @@ makeRemote("QueueAction", function(player, action, arg)
 	return false, "Unknown action"
 end)
 
-makeRemote("BuyTower", function(player, kind)
-	local def = typeof(kind) == "string" and Config.Towers[kind]
-	if not def or not def.UnlockPrice then return false, "Can't buy that" end
+---------------------------------------------------------------- crates
+-- All rolls happen here on the server; the client only plays the animation for the result.
+local rng = Random.new()
+local opening = {} -- player -> true while a crate is being processed
+
+local function pickWeighted(weights)
+	local total = 0
+	for _, w in weights do total += w.weight end
+	local roll = rng:NextNumber() * total
+	for _, w in weights do
+		roll -= w.weight
+		if roll <= 0 then return w.id end
+	end
+	return weights[#weights].id
+end
+
+local function rollCrate(crate, pity)
+	local odds = Config.CrateOdds(crate)
+	local _, legendaryIndex = Config.GetRarity("Legendary")
+	local forced = pity >= Config.PityThreshold - 1
+	local weights = {}
+	for i, r in Config.Rarities do
+		local chance = odds[r.Id]
+		if chance > 0 and (not forced or i >= legendaryIndex) then
+			table.insert(weights, { id = r.Id, weight = chance })
+		end
+	end
+	if #weights == 0 then -- crate has no Legendary+ odds: fall back to normal odds
+		for _, r in Config.Rarities do
+			if odds[r.Id] > 0 then table.insert(weights, { id = r.Id, weight = odds[r.Id] }) end
+		end
+	end
+	local rarityId = pickWeighted(weights)
+	local pool = Config.TowersOfRarity(rarityId)
+	return pool[rng:NextInteger(1, #pool)], rarityId
+end
+
+makeRemote("OpenCrate", function(player, crateId)
+	local crate = typeof(crateId) == "string" and Config.GetCrate(crateId)
+	if not crate then return false, "Unknown crate" end
+	if opening[player] then return false, "Already opening a crate!" end
 	local data = DataService.get(player)
 	if not data then return false, "Your data hasn't loaded yet" end
-	if data.Towers[kind] then return false, "You already own it!" end
-	if data.Coins < def.UnlockPrice then return false, "Not enough " .. Config.CurrencyName .. "!" end
+	if data.Coins < crate.Price then return false, "Not enough " .. Config.CurrencyName .. "!" end
+
+	opening[player] = true
+	local kind, rarityId = rollCrate(crate, data.Pity)
+	local rarity, rarityIndex = Config.GetRarity(rarityId)
+	local _, legendaryIndex = Config.GetRarity("Legendary")
+	local duplicate = data.Towers[kind] == true
+	local refund = if duplicate then rarity.Refund else 0
+
 	DataService.update(player, function(d)
-		d.Coins -= def.UnlockPrice
+		d.Coins -= crate.Price
+		d.Coins += refund
 		d.Towers[kind] = true
+		d.CratesOpened += 1
+		d.Pity = if rarityIndex >= legendaryIndex then 0 else d.Pity + 1
 	end)
-	task.spawn(DataService.save, player)
-	return true, "Unlocked " .. def.DisplayName .. "!"
+	task.spawn(function()
+		DataService.save(player)
+		task.wait(0.5)
+		opening[player] = nil
+	end)
+	return true, { Tower = kind, Rarity = rarityId, Duplicate = duplicate, Refund = refund }
+end)
+
+Players.PlayerRemoving:Connect(function(p)
+	opening[p] = nil
 end)

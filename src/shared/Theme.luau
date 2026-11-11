@@ -38,6 +38,11 @@ Theme.Icons = {
 		YapCannon = "rbxassetid://122455259914881",
 		SigmaSniper = "rbxassetid://97520522995430",
 	},
+	-- Crate art (square, transparent PNG). Empty = drawn placeholder box.
+	Crates = {
+		Basic = "",
+		Brainrot = "",
+	},
 }
 
 -- Text glyphs used while an icon slot is empty.

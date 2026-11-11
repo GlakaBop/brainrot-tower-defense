@@ -33,6 +33,8 @@ local function defaultData()
 		BestWave = {}, -- difficultyId -> number
 		Wins = 0,
 		GamesPlayed = 0,
+		Pity = 0, -- crates opened since the last Legendary+
+		CratesOpened = 0,
 	}
 end
 
@@ -65,6 +67,7 @@ local function syncAttributes(player, data)
 	player:SetAttribute("OwnedTowers", setsToString(data.Towers))
 	player:SetAttribute("BeatenDifficulties", setsToString(data.Beaten))
 	player:SetAttribute("Wins", data.Wins)
+	player:SetAttribute("Pity", data.Pity)
 end
 
 -- Session lock: while a server has a player's data loaded, it stamps { job, time } on the save.
