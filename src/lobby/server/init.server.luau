@@ -8,6 +8,7 @@ local Lighting = game:GetService("Lighting")
 local Config = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Config"))
 local DataService = require(game:GetService("ServerScriptService"):WaitForChild("Common"):WaitForChild("DataService"))
 local RateLimit = require(game:GetService("ServerScriptService").Common:WaitForChild("RateLimit"))
+require(game:GetService("ServerScriptService").Common:WaitForChild("DevCommands")).start()
 DataService.start()
 
 local QUEUE_TIME = 20

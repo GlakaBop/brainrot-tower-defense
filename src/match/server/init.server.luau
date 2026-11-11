@@ -12,6 +12,7 @@ local MapBuilder = require(script.MapBuilder)
 local TeleportService = game:GetService("TeleportService")
 local DataService = require(game:GetService("ServerScriptService"):WaitForChild("Common"):WaitForChild("DataService"))
 local RateLimit = require(game:GetService("ServerScriptService").Common:WaitForChild("RateLimit"))
+require(game:GetService("ServerScriptService").Common:WaitForChild("DevCommands")).start()
 DataService.start()
 
 local makePart = Util.makePart
