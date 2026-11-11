@@ -1,0 +1,13 @@
+# Project place file
+/Brainrot TowerD.rbxlx
+
+# Roblox Studio lock files
+/*.rbxlx.lock
+/*.rbxl.lock
+
+sourcemap.json
+
+# Local place files
+*.rbxl
+*.rbxlx
+

@@ -1,0 +1,18 @@
+{
+  "name": "BrainrotTD-lobby",
+  "tree": {
+    "$className": "DataModel",
+    "ReplicatedStorage": {
+      "Shared": { "$path": "src/shared" }
+    },
+    "ServerScriptService": {
+      "Common": { "$path": "src/common" },
+      "Server": { "$path": "src/lobby/server" }
+    },
+    "StarterPlayer": {
+      "StarterPlayerScripts": {
+        "Client": { "$path": "src/lobby/client" }
+      }
+    }
+  }
+}
