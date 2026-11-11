@@ -16,49 +16,101 @@ local CrateOpening = require(script.CrateOpening)
 local gui = UI.screen("LobbyHud", player:WaitForChild("PlayerGui"))
 local toast = UI.toast(gui)
 
----------------------------------------------------------------- top-left: coins + wins
-local statsRow = UI.new("Frame", {
-	Position = UDim2.fromOffset(16, 12), Size = UDim2.fromOffset(0, 46), AutomaticSize = Enum.AutomaticSize.X,
-	BackgroundTransparency = 1, Parent = gui,
-}, { UI.list(Enum.FillDirection.Horizontal, 10, nil, Enum.VerticalAlignment.Center) })
+---------------------------------------------------------------- left side: menu tiles + currencies
+local menu = UI.new("Frame", {
+	AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(0, 16, 0.5, -30), Size = UDim2.fromOffset(250, 0),
+	AutomaticSize = Enum.AutomaticSize.Y, BackgroundTransparency = 1, Parent = gui,
+}, { UI.list(nil, 12) })
 
-local function statPill(order, iconKey, glyph, color, width)
-	local pill = UI.panel({ Size = UDim2.fromOffset(width, 46), LayoutOrder = order, Parent = statsRow })
-	UI.icon({ Size = UDim2.fromOffset(34, 34), Position = UDim2.fromOffset(6, 6), Color = color,
-		Image = iconKey and Theme.Icons[iconKey], Glyph = glyph, Parent = pill })
-	return UI.label({ Position = UDim2.fromOffset(48, 0), Size = UDim2.new(1, -56, 1, 0), FontFace = Theme.FontHeavy,
-		TextSize = 22, TextXAlignment = Enum.TextXAlignment.Left, Parent = pill })
+-- Big bright square button with art on top, a label at the bottom and a red notification dot.
+local function tile(name, text, color, size, order, parent)
+	local t = UI.new("TextButton", { Name = name, Size = size, BackgroundColor3 = color, AutoButtonColor = false, Text = "",
+		LayoutOrder = order, Parent = parent }, { UI.corner(14) })
+	UI.stroke(C.Stroke, 0, 4).Parent = t
+	UI.gloss(t)
+	UI.bouncy(t)
+	local art = UI.new("Frame", { Name = "Art", AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 6),
+		Size = UDim2.new(1, -16, 1, -42), BackgroundTransparency = 1, Parent = t })
+	UI.label({ AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -4), Size = UDim2.new(1, -8, 0, 32),
+		Text = text, TextSize = 26, Parent = t })
+	local dot = UI.new("Frame", { Name = "Dot", AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(1, -4, 0, 4),
+		Size = UDim2.fromOffset(26, 26), BackgroundColor3 = Color3.fromRGB(235, 35, 45), Visible = false, ZIndex = 3, Parent = t },
+		{ UI.corner(999) })
+	UI.stroke(C.Stroke, 0, 2.5).Parent = dot
+	return t, art, dot
 end
 
--- Level pill with XP bar
-local levelPill = UI.panel({ Size = UDim2.fromOffset(200, 46), LayoutOrder = 0, Parent = statsRow })
-local levelBadge = UI.new("Frame", { Position = UDim2.fromOffset(6, 6), Size = UDim2.fromOffset(34, 34), BackgroundColor3 = C.Gold,
-	Parent = levelPill }, { UI.corner(999), UI.shine() })
-local levelNum = UI.label({ Size = UDim2.fromScale(1, 1), FontFace = Theme.FontHeavy, TextSize = 17, TextColor3 = C.Panel, Parent = levelBadge })
-UI.label({ Position = UDim2.fromOffset(48, 5), Size = UDim2.new(1, -56, 0, 18), Text = "LEVEL", FontFace = Theme.FontBold,
-	TextSize = 13, TextColor3 = C.SubText, TextXAlignment = Enum.TextXAlignment.Left, Parent = levelPill })
-local xpText = UI.label({ Position = UDim2.fromOffset(48, 5), Size = UDim2.new(1, -56, 0, 18), FontFace = Theme.FontBold,
-	TextSize = 12, TextColor3 = C.SubText, TextXAlignment = Enum.TextXAlignment.Right, Parent = levelPill })
-local xpBack = UI.new("Frame", { Position = UDim2.fromOffset(48, 26), Size = UDim2.new(1, -58, 0, 10), BackgroundColor3 = C.PanelLight,
-	Parent = levelPill }, { UI.corner(999) })
-local xpFill = UI.new("Frame", { Size = UDim2.fromScale(0, 1), BackgroundColor3 = C.Gold, Parent = xpBack }, { UI.corner(999) })
+local shopBtn, shopArt, shopDot = tile("ShopButton", "Shop", Theme.Tiles.Shop, UDim2.fromOffset(250, 130), 1, menu)
+local shopIcon = CrateOpening.crateArt(Config.Crates[1], UDim2.fromOffset(86, 86), shopArt)
+shopIcon.AnchorPoint = Vector2.new(0.5, 0.5)
+shopIcon.Position = UDim2.fromScale(0.5, 0.5)
 
-local coinsLbl = statPill(1, nil, "C", C.Gold, 150)
-local winsLbl = statPill(2, nil, "W", C.Wave, 120)
+local tileRow = UI.new("Frame", { Size = UDim2.fromOffset(250, 120), BackgroundTransparency = 1, LayoutOrder = 2, Parent = menu },
+	{ UI.list(Enum.FillDirection.Horizontal, 10) })
+local towersBtn, towersArt, towersDot = tile("TowersButton", "Towers", Theme.Tiles.Towers, UDim2.fromOffset(120, 120), 1, tileRow)
+UI.icon({ Size = UDim2.fromOffset(66, 66), AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5),
+	Color = Config.Towers.RizzBlaster.Color, Image = Theme.Icons.Towers.RizzBlaster, Glyph = "T", Parent = towersArt })
+
+-- Currency rows (big outlined numbers, like the reference)
+local function currencyRow(order, color)
+	local row = UI.new("Frame", { Size = UDim2.fromOffset(250, 40), BackgroundTransparency = 1, LayoutOrder = order, Parent = menu })
+	local lbl = UI.label({ Position = UDim2.fromOffset(52, 0), Size = UDim2.new(1, -52, 1, 0), TextSize = 32, TextColor3 = color,
+		TextXAlignment = Enum.TextXAlignment.Left, Parent = row })
+	return row, lbl
+end
+
+local coinRow, coinsLbl = currencyRow(3, C.Gold)
+local coin = UI.new("Frame", { Position = UDim2.fromOffset(4, 2), Size = UDim2.fromOffset(36, 36), BackgroundColor3 = C.Gold,
+	Parent = coinRow }, { UI.corner(999), UI.stroke(Color3.fromRGB(200, 130, 20), 0, 3) })
+UI.new("Frame", { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromScale(0.55, 0.55),
+	BackgroundColor3 = Color3.fromRGB(255, 235, 140), Parent = coin }, { UI.corner(999) })
+
+local winRow, winsLbl = currencyRow(4, Color3.fromRGB(120, 230, 255))
+UI.label({ Size = UDim2.fromOffset(44, 40), Text = "🏆", TextSize = 32, NoStroke = true, Parent = winRow })
+
+---------------------------------------------------------------- bottom: level bar
+local levelBar = UI.new("Frame", {
+	AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -10), Size = UDim2.new(0.6, 0, 0, 30),
+	BackgroundColor3 = Color3.fromRGB(70, 70, 82), Parent = gui,
+}, { UI.corner(8), UI.stroke(Theme.TextStroke, 0, 3), UI.new("UISizeConstraint", { MinSize = Vector2.new(420, 0), MaxSize = Vector2.new(900, 999) }) })
+local xpFill = UI.new("Frame", { Size = UDim2.fromScale(0, 1), BackgroundColor3 = Color3.fromRGB(110, 220, 90), Parent = levelBar },
+	{ UI.corner(8) })
+UI.gloss(xpFill)
+local xpText = UI.label({ Size = UDim2.fromScale(1, 1), TextSize = 22, ZIndex = 2, Parent = levelBar })
 
 local function refreshLevel()
 	local level, xp, need = player:GetAttribute("Level") or 1, player:GetAttribute("XP") or 0, player:GetAttribute("XPNeeded") or 100
-	levelNum.Text = tostring(level)
-	xpText.Text = string.format("%d / %d XP", xp, need)
+	xpText.Text = string.format("Level %d  (%d/%d)", level, xp, need)
 	UI.tween(xpFill, 0.4, { Size = UDim2.fromScale(math.clamp(xp / need, 0, 1), 1) })
 end
 
----------------------------------------------------------------- shop button + panel
-local shopBtn = UI.button({
-	Name = "ShopButton", Size = UDim2.fromOffset(150, 52), Position = UDim2.new(0, 16, 1, -16), AnchorPoint = Vector2.new(0, 1),
-	Color = C.Gold:Lerp(C.Sell, 0.35), Text = "CRATES", TextSize = 24, Radius = 14, Parent = gui,
+---------------------------------------------------------------- bottom: equipped tower slots
+local slotBar = UI.new("Frame", {
+	AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -50), Size = UDim2.fromOffset(0, 124),
+	AutomaticSize = Enum.AutomaticSize.X, BackgroundTransparency = 1, Parent = gui,
+}, { UI.list(Enum.FillDirection.Horizontal, 12, Enum.HorizontalAlignment.Center) })
+
+---------------------------------------------------------------- bottom: Play button (walks you to a queue pad)
+local playBtn = UI.button({
+	Name = "PlayButton", AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -186), Size = UDim2.fromOffset(250, 72),
+	Color = Theme.Tiles.Play, Text = "Play", TextSize = 50, Radius = 6, Parent = gui,
 })
-shopBtn.FontFace = Theme.FontHeavy
+playBtn.Activated:Connect(function()
+	local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+	if not root then return end
+	local best, bestDist = nil, math.huge
+	for i = 1, 3 do
+		local pad = workspace:FindFirstChild("Pad" .. i, true)
+		local ring = pad and pad:FindFirstChild("Ring")
+		if ring then
+			local d = (ring.Position - root.Position).Magnitude
+			if d < bestDist then best, bestDist = ring, d end
+		end
+	end
+	if best then
+		root.CFrame = CFrame.new(best.Position + Vector3.new(0, 3, 0))
+	end
+end)
 
 local shop = UI.panel({
 	AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromOffset(640, 440),
@@ -169,6 +221,11 @@ local function refreshShop()
 			UI.setButtonColor(c.button, if coins >= c.crate.Price then C.Upgrade else C.Disabled)
 		end
 	end
+	local canOpen = false
+	for id, c in crateButtons do
+		if (free[id] or 0) > 0 or coins >= c.crate.Price then canOpen = true end
+	end
+	shopDot.Visible = canOpen
 	local pity = player:GetAttribute("Pity") or 0
 	pityLbl.Text = string.format("Guaranteed Legendary in %d crates  ·  Duplicates give %s back",
 		math.max(Config.PityThreshold - pity, 1), Config.CurrencyName)
@@ -179,12 +236,6 @@ closeShop.Activated:Connect(function() shop.Visible = false end)
 
 ---------------------------------------------------------------- towers / loadout panel
 local loadoutRemote = ReplicatedStorage:WaitForChild("ToggleLoadout")
-
-local towersBtn = UI.button({
-	Name = "TowersButton", Size = UDim2.fromOffset(150, 52), Position = UDim2.new(0, 16, 1, -78), AnchorPoint = Vector2.new(0, 1),
-	Color = C.Target, Text = "TOWERS", TextSize = 24, Radius = 14, Parent = gui,
-})
-towersBtn.FontFace = Theme.FontHeavy
 
 local towersPanel = UI.panel({
 	AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromOffset(640, 600),
@@ -237,8 +288,42 @@ local hotbarPreview = UI.new("Frame", {
 	AutomaticSize = Enum.AutomaticSize.X, BackgroundTransparency = 1, Parent = towersPanel,
 }, { UI.list(Enum.FillDirection.Horizontal, 8, Enum.HorizontalAlignment.Center) })
 
+-- Bottom-of-screen slot bar (always visible in the lobby). Click any slot to open the Towers window.
+local function refreshSlotBar(loadout)
+	for _, child in slotBar:GetChildren() do
+		if child:IsA("GuiObject") then child:Destroy() end
+	end
+	for slot = 1, Config.LoadoutSize do
+		local kind = loadout[slot]
+		local def = kind and Config.Towers[kind]
+		local holder = UI.new("Frame", { Size = UDim2.fromOffset(100, 124), BackgroundTransparency = 1, LayoutOrder = slot, Parent = slotBar })
+		local color = if def then Config.GetRarity(def.Rarity or "Common").Color:Lerp(Color3.new(1, 1, 1), 0.25) else Theme.Tiles.EmptySlot
+		local btn = UI.new("TextButton", { Size = UDim2.fromOffset(100, 100), BackgroundColor3 = color, AutoButtonColor = false, Text = "",
+			Parent = holder }, { UI.corner(12) })
+		UI.stroke(if def then C.Stroke else Color3.fromRGB(90, 55, 30), 0, 4).Parent = btn
+		UI.gloss(btn)
+		UI.bouncy(btn)
+		UI.label({ Position = UDim2.fromOffset(6, 2), Size = UDim2.fromOffset(20, 22), Text = tostring(slot), TextSize = 20, ZIndex = 3,
+			TextXAlignment = Enum.TextXAlignment.Left, Parent = btn })
+		if def then
+			UI.icon({ Size = UDim2.fromOffset(74, 74), AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.52),
+				Color = def.Color, Image = Theme.Icons.Towers[kind], Glyph = Theme.Glyphs.Towers[kind], Parent = btn })
+			UI.label({ AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.fromScale(0.5, 1), Size = UDim2.new(1, 0, 0, 24),
+				Text = "$" .. def.Levels[1].Cost, TextSize = 24, TextColor3 = C.Gold, Parent = holder })
+		else
+			UI.label({ Size = UDim2.fromScale(1, 1), Text = "+", TextSize = 44, TextTransparency = 0.4, Parent = btn })
+		end
+		btn.Activated:Connect(function()
+			towersPanel.Visible = true
+			shop.Visible = false
+			UI.popIn(towersPanel)
+		end)
+	end
+end
+
 local lastPreviewKey = nil
 local function refreshHotbarPreview(loadout)
+	refreshSlotBar(loadout)
 	for _, child in hotbarPreview:GetChildren() do
 		if child:IsA("GuiObject") then child:Destroy() end
 	end
@@ -287,6 +372,11 @@ local function refreshLoadout()
 		end
 		refreshHotbarPreview(cleanLoadout)
 	end
+	local spare = false
+	for k in owned do
+		if Config.Towers[k] and not equipped[k] then spare = true end
+	end
+	towersDot.Visible = spare and count < Config.LoadoutSize
 	loadoutLbl.Text = string.format("Equipped %d / %d  ·  Click a tower to equip or unequip it", count, Config.LoadoutSize)
 
 	for kind, c in towerCards do
@@ -312,6 +402,10 @@ end
 towersBtn.Activated:Connect(function()
 	towersPanel.Visible = not towersPanel.Visible
 	shop.Visible = false
+	if towersPanel.Visible then UI.popIn(towersPanel) end
+end)
+shopBtn.Activated:Connect(function()
+	if shop.Visible then UI.popIn(shop) end
 end)
 closeTowers.Activated:Connect(function() towersPanel.Visible = false end)
 shopBtn.Activated:Connect(function() towersPanel.Visible = false end)
@@ -336,8 +430,7 @@ for i, m in Config.Maps do
 	local btn = UI.button({ Size = UDim2.new(1 / #Config.Maps, -4, 1, 0), Color = C.PanelLight, TextSize = 13, LayoutOrder = i, Parent = mapRow })
 	btn.TextWrapped = true
 	btn.Text = m.DisplayName .. (if (m.CoinMult or 1) > 1 then string.format("\n×%.2g coins", m.CoinMult) else "")
-	local mapStroke = UI.stroke(m.Color, 1, 2.5)
-	mapStroke.Parent = btn
+	local mapStroke = btn:FindFirstChildOfClass("UIStroke")
 	btn.Activated:Connect(function()
 		local ok, msg = queueRemote:InvokeServer("Map", m.Id)
 		toast(msg, ok)
@@ -353,8 +446,7 @@ local diffBox = UI.new("Frame", { Size = UDim2.new(1, 0, 0, 0), AutomaticSize = 
 	LayoutOrder = 6, Parent = queue }, { UI.list(nil, 6) })
 for i, d in Config.Difficulties do
 	local btn = UI.button({ Size = UDim2.new(1, 0, 0, 38), Color = C.PanelLight, TextSize = 17, LayoutOrder = i, Parent = diffBox })
-	local btnStroke = UI.stroke(d.Color, 1, 2.5)
-	btnStroke.Parent = btn
+	local btnStroke = btn:FindFirstChildOfClass("UIStroke")
 	btn.Activated:Connect(function()
 		local ok, msg = queueRemote:InvokeServer("Difficulty", d.Id)
 		toast(msg, ok)
@@ -379,6 +471,7 @@ end)
 local function refreshQueue()
 	local padId = player:GetAttribute("QueuePad")
 	queue.Visible = padId ~= nil
+	playBtn.Visible = padId == nil
 	if not padId then return end
 	local isLeader = player:GetAttribute("QueueLeader") == true
 	local current = player:GetAttribute("QueueDifficulty")
@@ -396,14 +489,14 @@ local function refreshQueue()
 		b.btn.Text = if unlocked then d.DisplayName else "🔒 " .. d.DisplayName .. "  (beat " .. d.Requires .. ")"
 		UI.setButtonColor(b.btn, if selected then d.Color:Lerp(C.Panel, 0.35) else C.PanelLight)
 		b.btn.TextTransparency = if unlocked then 0 else 0.5
-		b.stroke.Transparency = if selected then 0 else 1
+		b.stroke.Color = if selected then C.Gold else C.Stroke
 		b.btn.Active = isLeader
 	end
 	local currentMap = player:GetAttribute("QueueMap")
 	for id, b in mapButtons do
 		local selected = id == currentMap
 		UI.setButtonColor(b.btn, if selected then b.def.Color:Lerp(C.Panel, 0.45) else C.PanelLight)
-		b.stroke.Transparency = if selected then 0 else 1
+		b.stroke.Color = if selected then C.Gold else C.Stroke
 		b.btn.Active = isLeader
 	end
 	startBtn.Visible = isLeader

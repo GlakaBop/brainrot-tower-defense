@@ -50,12 +50,30 @@ function UI.list(direction, gap, hAlign, vAlign)
 	})
 end
 
+-- Dark cartoon outline around text (pass NoStroke = true to skip it).
+function UI.textStroke(parent, thickness)
+	return new("UIStroke", {
+		Color = Theme.TextStroke, Thickness = thickness or Theme.TextStrokeThickness,
+		ApplyStrokeMode = Enum.ApplyStrokeMode.Contextual, LineJoinMode = Enum.LineJoinMode.Round, Parent = parent,
+	})
+end
+
 function UI.label(props)
 	local defaults = { BackgroundTransparency = 1, FontFace = Theme.Font, TextColor3 = C.Text, TextSize = 18 }
+	local noStroke = props.NoStroke
 	for k, v in props do
-		defaults[k] = v
+		if k ~= "NoStroke" then defaults[k] = v end
 	end
-	return new("TextLabel", defaults)
+	local lbl = new("TextLabel", defaults)
+	if not noStroke then UI.textStroke(lbl, math.clamp((defaults.TextSize or 18) / 10, 1.2, 3)) end
+	return lbl
+end
+
+-- Light-to-dark vertical gradient that gives flat colors a glossy cartoon look.
+function UI.gloss(parent)
+	return new("UIGradient", {
+		Color = ColorSequence.new(Color3.new(1, 1, 1), Color3.fromRGB(200, 200, 210)), Rotation = 90, Parent = parent,
+	})
 end
 
 function UI.panel(props, children)
@@ -65,8 +83,26 @@ function UI.panel(props, children)
 	end
 	local f = new("Frame", defaults, children)
 	UI.corner().Parent = f
-	UI.stroke().Parent = f
+	UI.stroke(C.Stroke, 0, 4).Parent = f
+	UI.gloss(f)
 	return f
+end
+
+-- Pop-in animation for windows.
+function UI.popIn(frame)
+	local s = frame:FindFirstChild("PopScale") or new("UIScale", { Name = "PopScale", Parent = frame })
+	s.Scale = 0.85
+	UI.tween(s, 0.25, { Scale = 1 }, Enum.EasingStyle.Back)
+end
+
+-- Springy hover/press feel for any GuiButton.
+function UI.bouncy(btn)
+	local s = new("UIScale", { Name = "BounceScale", Parent = btn })
+	btn.MouseEnter:Connect(function() UI.tween(s, 0.12, { Scale = 1.06 }) end)
+	btn.MouseLeave:Connect(function() UI.tween(s, 0.12, { Scale = 1 }) end)
+	btn.MouseButton1Down:Connect(function() UI.tween(s, 0.08, { Scale = 0.93 }) end)
+	btn.MouseButton1Up:Connect(function() UI.tween(s, 0.15, { Scale = 1.06 }, Enum.EasingStyle.Back) end)
+	return s
 end
 
 -- Round icon: image from Theme.Icons if set, otherwise a colored circle with a glyph.
@@ -103,14 +139,11 @@ function UI.button(props)
 		BackgroundColor3 = color, AutoButtonColor = false, BorderSizePixel = 0,
 		FontFace = Theme.FontBold, TextColor3 = Color3.new(1, 1, 1), TextSize = props.TextSize or 18,
 		Text = props.Text or "", Parent = props.Parent,
+		TextStrokeColor3 = Theme.TextStroke, TextStrokeTransparency = 0,
 	}, { UI.corner(props.Radius or 10), UI.shine() })
+	UI.stroke(C.Stroke, 0, 3).Parent = btn
 	btn:SetAttribute("BaseColor", color)
-	btn.MouseEnter:Connect(function()
-		UI.tween(btn, 0.12, { BackgroundColor3 = btn:GetAttribute("BaseColor"):Lerp(Color3.new(1, 1, 1), 0.15) })
-	end)
-	btn.MouseLeave:Connect(function()
-		UI.tween(btn, 0.12, { BackgroundColor3 = btn:GetAttribute("BaseColor") })
-	end)
+	UI.bouncy(btn)
 	return btn
 end
 

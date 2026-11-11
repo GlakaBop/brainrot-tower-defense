@@ -1,17 +1,21 @@
 -- UI look & feel. Change colors/fonts here; paste image IDs into Icons to replace the text icons.
 local Theme = {}
 
-local FAMILY = "rbxasset://fonts/families/BuilderSans.json"
-Theme.Font = Font.new(FAMILY, Enum.FontWeight.SemiBold)
-Theme.FontBold = Font.new(FAMILY, Enum.FontWeight.Bold)
-Theme.FontHeavy = Font.new(FAMILY, Enum.FontWeight.ExtraBold)
+-- Chunky cartoon font. Every label also gets a dark outline (Theme.TextStroke).
+local CARTOON = Font.fromEnum(Enum.Font.FredokaOne)
+Theme.Font = CARTOON
+Theme.FontBold = CARTOON
+Theme.FontHeavy = CARTOON
+
+Theme.TextStroke = Color3.fromRGB(30, 18, 50)
+Theme.TextStrokeThickness = 2
 
 Theme.Colors = {
-	Panel = Color3.fromRGB(22, 20, 38),
-	PanelLight = Color3.fromRGB(44, 40, 70),
+	Panel = Color3.fromRGB(62, 46, 128),
+	PanelLight = Color3.fromRGB(96, 76, 180),
 	Stroke = Color3.fromRGB(255, 255, 255),
-	Text = Color3.fromRGB(245, 243, 255),
-	SubText = Color3.fromRGB(170, 165, 200),
+	Text = Color3.fromRGB(255, 255, 255),
+	SubText = Color3.fromRGB(205, 195, 245),
 	Good = Color3.fromRGB(110, 235, 130),
 	Bad = Color3.fromRGB(255, 95, 110),
 	Gold = Color3.fromRGB(255, 205, 70),
@@ -24,8 +28,17 @@ Theme.Colors = {
 	Disabled = Color3.fromRGB(70, 68, 90),
 }
 
-Theme.PanelTransparency = 0.08
-Theme.Corner = 14
+Theme.PanelTransparency = 0
+Theme.Corner = 16
+
+-- Lobby menu tiles (left side). Background colors, like the bright pastel tiles in popular sims.
+Theme.Tiles = {
+	Shop = Color3.fromRGB(110, 225, 245),
+	Towers = Color3.fromRGB(255, 150, 200),
+	Slot = Color3.fromRGB(70, 200, 245),
+	EmptySlot = Color3.fromRGB(150, 95, 55),
+	Play = Color3.fromRGB(120, 225, 110),
+}
 
 -- Image slots: paste "rbxassetid://123..." to use your own icon art instead of the text glyphs.
 Theme.Icons = {
