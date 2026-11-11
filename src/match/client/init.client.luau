@@ -219,6 +219,15 @@ local function showBanner(title, sub, color)
 	end)
 end
 
+player:GetAttributeChangedSignal("MatchLevelUp"):Connect(function()
+	local level = player:GetAttribute("MatchLevelUp")
+	if level then
+		task.delay(2.5, function()
+			showBanner("LEVEL UP!", "You reached level " .. level .. " - rewards waiting in the lobby", C.Gold)
+		end)
+	end
+end)
+
 local function waveHasBoss(w)
 	local wave = Config.Waves[w]
 	if not wave then return false end

@@ -9,6 +9,8 @@ local Config = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Co
 local DataService = require(game:GetService("ServerScriptService"):WaitForChild("Common"):WaitForChild("DataService"))
 local RateLimit = require(game:GetService("ServerScriptService").Common:WaitForChild("RateLimit"))
 require(game:GetService("ServerScriptService").Common:WaitForChild("DevCommands")).start()
+require(game:GetService("ServerScriptService").Common:WaitForChild("LevelTags")).start()
+local Leaderboards = require(game:GetService("ServerScriptService").Common:WaitForChild("Leaderboards"))
 DataService.start()
 
 local QUEUE_TIME = 20
@@ -377,7 +379,8 @@ makeRemote("OpenCrate", function(player, crateId)
 	if opening[player] then return false, "Already opening a crate!" end
 	local data = DataService.get(player)
 	if not data then return false, "Your data hasn't loaded yet" end
-	if data.Coins < crate.Price then return false, "Not enough " .. Config.CurrencyName .. "!" end
+	local useFree = (data.FreeCrates[crate.Id] or 0) > 0 -- level-up reward crates are used first
+	if not useFree and data.Coins < crate.Price then return false, "Not enough " .. Config.CurrencyName .. "!" end
 
 	opening[player] = true
 	local kind, rarityId = rollCrate(crate, data.Pity)
@@ -387,7 +390,11 @@ makeRemote("OpenCrate", function(player, crateId)
 	local refund = if duplicate then rarity.Refund else 0
 
 	DataService.update(player, function(d)
-		d.Coins -= crate.Price
+		if useFree then
+			d.FreeCrates[crate.Id] -= 1
+		else
+			d.Coins -= crate.Price
+		end
 		d.Coins += refund
 		d.Towers[kind] = true
 		if not duplicate and #d.Loadout < Config.LoadoutSize then
@@ -406,6 +413,58 @@ end)
 
 Players.PlayerRemoving:Connect(function(p)
 	opening[p] = nil
+end)
+
+---------------------------------------------------------------- level-ups
+-- The client shows the level-up celebration, then calls this to clear the queue.
+makeRemote("ClaimLevelUps", function(player)
+	DataService.update(player, function(d) d.PendingLevelUps = {} end)
+	return true
+end)
+
+---------------------------------------------------------------- leaderboard boards
+local BOARD_SPOTS = {
+	{ Id = "Wins", CFrame = CFrame.new(-66, 9, 12) * CFrame.Angles(0, math.rad(-90), 0) }, -- faces +X (the room)
+	{ Id = "Level", CFrame = CFrame.new(66, 9, 12) * CFrame.Angles(0, math.rad(90), 0) }, -- faces -X
+}
+
+local boardRows = {}
+for _, spot in BOARD_SPOTS do
+	local boardDef
+	for _, b in Leaderboards.Boards do
+		if b.Id == spot.Id then boardDef = b end
+	end
+	local board = part({ Name = "Leaderboard_" .. spot.Id, Size = Vector3.new(16, 18, 1), CFrame = spot.CFrame,
+		Color = Color3.fromRGB(30, 20, 50), Material = Enum.Material.SmoothPlastic }, lobby)
+	local sg = Instance.new("SurfaceGui")
+	sg.Face = Enum.NormalId.Front
+	sg.CanvasSize = Vector2.new(320, 360)
+	sg.Parent = board
+	bbText(sg, boardDef.Title, UDim2.fromScale(0.05, 0.02), UDim2.fromScale(0.9, 0.12), Color3.fromRGB(255, 205, 70))
+	local rows = {}
+	for i = 1, 10 do
+		local y = 0.16 + (i - 1) * 0.083
+		local nameLbl = bbText(sg, "", UDim2.fromScale(0.06, y), UDim2.fromScale(0.66, 0.07), Color3.new(1, 1, 1))
+		nameLbl.TextXAlignment = Enum.TextXAlignment.Left
+		local valueLbl = bbText(sg, "", UDim2.fromScale(0.72, y), UDim2.fromScale(0.22, 0.07), Color3.fromRGB(110, 235, 130))
+		valueLbl.TextXAlignment = Enum.TextXAlignment.Right
+		rows[i] = { name = nameLbl, value = valueLbl }
+	end
+	boardRows[spot.Id] = rows
+end
+
+task.spawn(function()
+	while true do
+		for id, rows in boardRows do
+			local data = Leaderboards.fetch(id, 10)
+			for i, row in rows do
+				local entry = data and data[i]
+				row.name.Text = if entry then string.format("%d. %s", entry.Rank, entry.Name) elseif i == 1 and not data then "Leaderboard offline" else ""
+				row.value.Text = if entry then tostring(entry.Value) else ""
+			end
+		end
+		task.wait(60)
+	end
 end)
 
 ---------------------------------------------------------------- loadout

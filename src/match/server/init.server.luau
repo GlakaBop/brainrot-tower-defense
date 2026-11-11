@@ -13,6 +13,7 @@ local TeleportService = game:GetService("TeleportService")
 local DataService = require(game:GetService("ServerScriptService"):WaitForChild("Common"):WaitForChild("DataService"))
 local RateLimit = require(game:GetService("ServerScriptService").Common:WaitForChild("RateLimit"))
 require(game:GetService("ServerScriptService").Common:WaitForChild("DevCommands")).start()
+require(game:GetService("ServerScriptService").Common:WaitForChild("LevelTags")).start()
 DataService.start()
 
 local makePart = Util.makePart
@@ -90,6 +91,7 @@ local lives = Config.StartingLives
 local currentWave = 0
 local difficulty = Config.GetDifficulty("Normal") -- replaced by the party's pick once players arrive
 local expectedPlayers = 1
+local killXP = 0 -- XP from kills this match (shared by the whole party)
 local enemies = {} -- array of enemy records
 local towers = {} -- id -> tower record
 local nextTowerId = 0
@@ -235,6 +237,7 @@ local function damageEnemy(e, amount)
 		e.alive = false
 		local pos = e.body.Position
 		local reward = giveAll(e.def.Reward)
+		killXP += if e.def.IsBoss then Config.Progression.XPPerBossKill else Config.Progression.XPPerKill
 		Effects.pop(pos, e.def.Color, e.def.Size.X)
 		Effects.confetti(pos, if e.def.IsBoss then 80 else 15)
 		Effects.floatText(pos, "+$" .. reward, Color3.fromRGB(120, 255, 120))
@@ -674,6 +677,7 @@ local function resetGame()
 	end
 	lives = difficulty.Lives
 	currentWave = 0
+	killXP = 0
 	setState("Lives", lives)
 	setState("Wave", 0)
 	setState("MaxWave", difficulty.Waves)
@@ -743,7 +747,13 @@ end
 
 local function awardPlayers(wavesCleared, won)
 	local coins = coinsFor(wavesCleared, won)
+	local prog = Config.Progression
+	local xp = math.floor((killXP + wavesCleared * prog.XPPerWave + (if won then prog.XPWinBonus else 0)) * difficulty.CoinMult)
 	for _, p in Players:GetPlayers() do
+		local levels = DataService.addXP(p, xp)
+		if levels > 0 then
+			p:SetAttribute("MatchLevelUp", p:GetAttribute("Level"))
+		end
 		DataService.update(p, function(data)
 			data.Coins += coins
 			data.GamesPlayed += 1
@@ -755,7 +765,7 @@ local function awardPlayers(wavesCleared, won)
 		end)
 		task.spawn(DataService.save, p)
 	end
-	return coins
+	return coins, xp
 end
 
 -- Returns true if players were sent back to the lobby (live servers only).
@@ -810,12 +820,13 @@ while true do
 			countdown(Config.Intermission, "Wave cleared! +$" .. bonus .. " - next wave in %d")
 		end
 	end
-	local coins = awardPlayers(cleared, won)
+	local coins, xp = awardPlayers(cleared, won)
+	local rewardText = string.format("+%d %s  ·  +%d XP", coins, Config.CurrencyName, xp)
 	if won then
-		setState("Status", "YOU WIN! +" .. coins .. " " .. Config.CurrencyName)
+		setState("Status", "YOU WIN!  " .. rewardText)
 		Effects.confetti(baseCenter + Vector3.new(0, 12, 0), 200)
 	else
-		setState("Status", "GAME OVER! You survived " .. cleared .. " waves. +" .. coins .. " " .. Config.CurrencyName)
+		setState("Status", "GAME OVER! You survived " .. cleared .. " waves.  " .. rewardText)
 	end
 	task.wait(10)
 	if returnToLobby() then

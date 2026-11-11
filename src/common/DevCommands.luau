@@ -39,6 +39,12 @@ function DevCommands.start()
 		print(string.format("[Dev] Gave %s %d %s", player.Name, amount, Config.CurrencyName))
 	end)
 
+	addCommand("DevXP", "/xp", function(player, text)
+		local amount = tonumber(string.match(text, "%d+")) or 500
+		local levels = DataService.addXP(player, amount)
+		print(string.format("[Dev] Gave %s %d XP (+%d levels)", player.Name, amount, levels))
+	end)
+
 	addCommand("DevReset", "/resetdata", function(player)
 		DataService.update(player, function(d)
 			d.Coins = 0
@@ -50,6 +56,10 @@ function DevCommands.start()
 			d.BestWave = {}
 			d.Pity = 0
 			d.CratesOpened = 0
+			d.Level = 1
+			d.XP = 0
+			d.FreeCrates = {}
+			d.PendingLevelUps = {}
 		end)
 		print("[Dev] Reset data for " .. player.Name)
 	end)

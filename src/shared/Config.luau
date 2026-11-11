@@ -14,6 +14,35 @@ Config.CoinsPerWave = 5
 Config.WinBonusCoins = 100
 Config.MaxPartySize = 4
 
+-- Player levels. XP earned per match is multiplied by the difficulty's CoinMult.
+Config.Progression = {
+	XPPerKill = 1,
+	XPPerBossKill = 25,
+	XPPerWave = 10,
+	XPWinBonus = 100,
+	MaxLevel = 100,
+	CoinsPerLevel = 25,
+	BasicCrateEvery = 5, -- free Basic Crate every 5 levels
+	BrainrotCrateEvery = 10, -- free Brainrot Crate every 10 levels (instead of the Basic one)
+}
+
+-- XP needed to go from `level` to `level + 1`.
+function Config.XPForLevel(level: number): number
+	return 100 + (level - 1) * 50
+end
+
+-- What you get for reaching `level`: { Coins = n, Crate = "Basic"/"Brainrot"/nil }
+function Config.LevelReward(level: number)
+	local p = Config.Progression
+	local crate = nil
+	if level % p.BrainrotCrateEvery == 0 then
+		crate = "Brainrot"
+	elseif level % p.BasicCrateEvery == 0 then
+		crate = "Basic"
+	end
+	return { Coins = p.CoinsPerLevel, Crate = crate }
+end
+
 -- Difficulties, in unlock order. Requires = difficulty you must win first.
 Config.Difficulties = {
 	{

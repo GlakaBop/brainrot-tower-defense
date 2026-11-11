@@ -30,8 +30,28 @@ local function statPill(order, iconKey, glyph, color, width)
 		TextSize = 22, TextXAlignment = Enum.TextXAlignment.Left, Parent = pill })
 end
 
+-- Level pill with XP bar
+local levelPill = UI.panel({ Size = UDim2.fromOffset(200, 46), LayoutOrder = 0, Parent = statsRow })
+local levelBadge = UI.new("Frame", { Position = UDim2.fromOffset(6, 6), Size = UDim2.fromOffset(34, 34), BackgroundColor3 = C.Gold,
+	Parent = levelPill }, { UI.corner(999), UI.shine() })
+local levelNum = UI.label({ Size = UDim2.fromScale(1, 1), FontFace = Theme.FontHeavy, TextSize = 17, TextColor3 = C.Panel, Parent = levelBadge })
+UI.label({ Position = UDim2.fromOffset(48, 5), Size = UDim2.new(1, -56, 0, 18), Text = "LEVEL", FontFace = Theme.FontBold,
+	TextSize = 13, TextColor3 = C.SubText, TextXAlignment = Enum.TextXAlignment.Left, Parent = levelPill })
+local xpText = UI.label({ Position = UDim2.fromOffset(48, 5), Size = UDim2.new(1, -56, 0, 18), FontFace = Theme.FontBold,
+	TextSize = 12, TextColor3 = C.SubText, TextXAlignment = Enum.TextXAlignment.Right, Parent = levelPill })
+local xpBack = UI.new("Frame", { Position = UDim2.fromOffset(48, 26), Size = UDim2.new(1, -58, 0, 10), BackgroundColor3 = C.PanelLight,
+	Parent = levelPill }, { UI.corner(999) })
+local xpFill = UI.new("Frame", { Size = UDim2.fromScale(0, 1), BackgroundColor3 = C.Gold, Parent = xpBack }, { UI.corner(999) })
+
 local coinsLbl = statPill(1, nil, "C", C.Gold, 150)
 local winsLbl = statPill(2, nil, "W", C.Wave, 120)
+
+local function refreshLevel()
+	local level, xp, need = player:GetAttribute("Level") or 1, player:GetAttribute("XP") or 0, player:GetAttribute("XPNeeded") or 100
+	levelNum.Text = tostring(level)
+	xpText.Text = string.format("%d / %d XP", xp, need)
+	UI.tween(xpFill, 0.4, { Size = UDim2.fromScale(math.clamp(xp / need, 0, 1), 1) })
+end
 
 ---------------------------------------------------------------- shop button + panel
 local shopBtn = UI.button({
@@ -135,8 +155,19 @@ end
 
 local function refreshShop()
 	local coins = player:GetAttribute("Coins") or 0
-	for _, c in crateButtons do
-		UI.setButtonColor(c.button, if coins >= c.crate.Price then C.Upgrade else C.Disabled)
+	local free = {}
+	for _, entry in string.split(player:GetAttribute("FreeCrates") or "", ",") do
+		local id, n = string.match(entry, "^(%w+):(%d+)$")
+		if id then free[id] = tonumber(n) end
+	end
+	for id, c in crateButtons do
+		if (free[id] or 0) > 0 then
+			c.button.Text = string.format("OPEN FREE  (%d)", free[id])
+			UI.setButtonColor(c.button, C.Gold:Lerp(C.Upgrade, 0.4))
+		else
+			c.button.Text = "OPEN  ·  " .. c.crate.Price .. " " .. Config.CurrencyName
+			UI.setButtonColor(c.button, if coins >= c.crate.Price then C.Upgrade else C.Disabled)
+		end
 	end
 	local pity = player:GetAttribute("Pity") or 0
 	pityLbl.Text = string.format("Guaranteed Legendary in %d crates  ·  Duplicates give %s back",
@@ -380,9 +411,59 @@ local function refreshQueue()
 end
 
 ---------------------------------------------------------------- bindings
+---------------------------------------------------------------- level-up popup
+local claimRemote = ReplicatedStorage:WaitForChild("ClaimLevelUps")
+local HttpService = game:GetService("HttpService")
+local levelUpShowing = false
+
+local function showLevelUps()
+	if levelUpShowing then return end
+	local ok, list = pcall(function()
+		return HttpService:JSONDecode(player:GetAttribute("PendingLevelUps") or "[]")
+	end)
+	if not ok or #list == 0 then return end
+	levelUpShowing = true
+
+	local overlay = UI.new("TextButton", { Size = UDim2.fromScale(1, 1), BackgroundColor3 = Color3.new(0, 0, 0), BackgroundTransparency = 0.35,
+		AutoButtonColor = false, Text = "", ZIndex = 90, Parent = gui })
+	local card = UI.panel({ AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromOffset(380, 0),
+		AutomaticSize = Enum.AutomaticSize.Y, Parent = overlay }, { UI.padding(20), UI.list(nil, 10, Enum.HorizontalAlignment.Center) })
+	card:FindFirstChildOfClass("UIStroke").Color = C.Gold
+	card:FindFirstChildOfClass("UIStroke").Transparency = 0
+	card:FindFirstChildOfClass("UIStroke").Thickness = 3
+	local cardScale = UI.new("UIScale", { Scale = 0.3, Parent = card })
+	UI.tween(cardScale, 0.4, { Scale = 1 }, Enum.EasingStyle.Back)
+
+	local top = list[#list]
+	UI.label({ Size = UDim2.new(1, 0, 0, 44), Text = "LEVEL UP!", FontFace = Theme.FontHeavy, TextSize = 40, TextColor3 = C.Gold, LayoutOrder = 1, Parent = card })
+	UI.label({ Size = UDim2.new(1, 0, 0, 24), Text = "You reached level " .. top.Level, FontFace = Theme.FontBold, TextSize = 20, LayoutOrder = 2, Parent = card })
+
+	local coins, crates = 0, {}
+	for _, lv in list do
+		coins += lv.Coins or 0
+		if lv.Crate then crates[lv.Crate] = (crates[lv.Crate] or 0) + 1 end
+	end
+	local lines = { string.format("+%d %s", coins, Config.CurrencyName) }
+	for id, n in crates do
+		local crate = Config.GetCrate(id)
+		table.insert(lines, string.format("+%d free %s", n, if crate then crate.DisplayName else id))
+	end
+	UI.label({ Size = UDim2.new(1, 0, 0, 24 * #lines), Text = table.concat(lines, "\n"), TextSize = 19, TextColor3 = C.Good,
+		FontFace = Theme.FontBold, LayoutOrder = 3, Parent = card })
+	local claim = UI.button({ Size = UDim2.new(1, 0, 0, 48), Color = C.Upgrade, Text = "CLAIM!", TextSize = 22, LayoutOrder = 4, Parent = card })
+	claim.FontFace = Theme.FontHeavy
+	claim.Activated:Once(function()
+		claimRemote:InvokeServer()
+		overlay:Destroy()
+		levelUpShowing = false
+	end)
+end
+
 local function refreshStats()
 	coinsLbl.Text = tostring(player:GetAttribute("Coins") or 0)
 	winsLbl.Text = tostring(player:GetAttribute("Wins") or 0)
+	refreshLevel()
+	showLevelUps()
 	refreshShop()
 	refreshLoadout()
 	refreshQueue()

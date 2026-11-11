@@ -4,8 +4,10 @@
 local DataStoreService = game:GetService("DataStoreService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local HttpService = game:GetService("HttpService")
 
 local Config = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Config"))
+local Leaderboards = require(script.Parent.Leaderboards)
 
 local STORE_NAME = "PlayerData_v1"
 local AUTOSAVE_INTERVAL = 60
@@ -36,6 +38,10 @@ local function defaultData()
 		Pity = 0, -- crates opened since the last Legendary+
 		CratesOpened = 0,
 		Loadout = table.clone(Config.StarterTowers), -- ordered list of equipped tower ids
+		Level = 1,
+		XP = 0, -- XP toward the next level
+		FreeCrates = {}, -- crateId -> count (from level-up rewards)
+		PendingLevelUps = {}, -- { {Level, Coins, Crate} } shown as a popup in the lobby, then cleared
 	}
 end
 
@@ -88,6 +94,15 @@ local function syncAttributes(player, data)
 	player:SetAttribute("Wins", data.Wins)
 	player:SetAttribute("Pity", data.Pity)
 	player:SetAttribute("Loadout", table.concat(data.Loadout, ","))
+	player:SetAttribute("Level", data.Level)
+	player:SetAttribute("XP", data.XP)
+	player:SetAttribute("XPNeeded", Config.XPForLevel(data.Level))
+	local free = {}
+	for id, n in data.FreeCrates do
+		if n > 0 then table.insert(free, id .. ":" .. n) end
+	end
+	player:SetAttribute("FreeCrates", table.concat(free, ","))
+	player:SetAttribute("PendingLevelUps", HttpService:JSONEncode(data.PendingLevelUps))
 end
 
 -- Session lock: while a server has a player's data loaded, it stamps { job, time } on the save.
@@ -178,7 +193,32 @@ function DataService.save(player, release)
 		warn("[DataService] save skipped for " .. player.Name .. ": data is locked by another server")
 		p.canSave = false
 	end
+	if ok and not stolen then
+		Leaderboards.submit(player.UserId, p.data)
+	end
 	return ok and not stolen
+end
+
+-- Adds XP, handles level-ups and grants their rewards. Returns how many levels were gained.
+function DataService.addXP(player, amount)
+	local gained = 0
+	DataService.update(player, function(d)
+		d.XP += math.max(0, math.floor(amount))
+		while d.Level < Config.Progression.MaxLevel and d.XP >= Config.XPForLevel(d.Level) do
+			d.XP -= Config.XPForLevel(d.Level)
+			d.Level += 1
+			gained += 1
+			local reward = Config.LevelReward(d.Level)
+			d.Coins += reward.Coins
+			if reward.Crate then
+				d.FreeCrates[reward.Crate] = (d.FreeCrates[reward.Crate] or 0) + 1
+			end
+			table.insert(d.PendingLevelUps, { Level = d.Level, Coins = reward.Coins, Crate = reward.Crate })
+		end
+		if d.Level >= Config.Progression.MaxLevel then d.XP = 0 end
+		while #d.PendingLevelUps > 10 do table.remove(d.PendingLevelUps, 1) end
+	end)
+	return gained
 end
 
 function DataService.release(player)
