@@ -20,15 +20,20 @@ local GROUND_Y = 1
 local ICE_COLOR = Color3.fromRGB(150, 220, 255)
 
 ---------------------------------------------------------------- path math
-local waypoints = {}
-for i, p in Config.Path do
-	waypoints[i] = Vector3.new(p.X, GROUND_Y, p.Z)
+-- Filled in by setPath() once we know which map the party picked.
+local waypoints, cumulative, pathLength = {}, { 0 }, 0
+
+local function setPath(points)
+	table.clear(waypoints)
+	for i, p in points do
+		waypoints[i] = Vector3.new(p.X, GROUND_Y, p.Z)
+	end
+	cumulative = { 0 }
+	for i = 2, #waypoints do
+		cumulative[i] = cumulative[i - 1] + (waypoints[i] - waypoints[i - 1]).Magnitude
+	end
+	pathLength = cumulative[#waypoints]
 end
-local cumulative = { 0 }
-for i = 2, #waypoints do
-	cumulative[i] = cumulative[i - 1] + (waypoints[i] - waypoints[i - 1]).Magnitude
-end
-local pathLength = cumulative[#waypoints]
 
 -- Position and facing direction at distance d along the path.
 local function pointAt(d)
@@ -57,8 +62,15 @@ local function distanceToPath(pos)
 end
 
 ---------------------------------------------------------------- world
-local mapInfo = MapBuilder.build(waypoints, distanceToPath, GROUND_Y)
-local bounds, baseCenter = mapInfo.bounds, mapInfo.baseCenter
+local currentMap = Config.GetMap(nil)
+local mapInfo, bounds, baseCenter = nil, nil, nil
+
+local function loadMap(mapDef)
+	currentMap = mapDef
+	setPath(mapDef.Path)
+	mapInfo = MapBuilder.build(mapDef, waypoints, distanceToPath, GROUND_Y)
+	bounds, baseCenter = mapInfo.bounds, mapInfo.baseCenter
+end
 
 local spawnLoc = workspace:FindFirstChildOfClass("SpawnLocation")
 if spawnLoc then
@@ -308,6 +320,7 @@ local function buildTowerVisual(tw)
 end
 
 local function placeTower(player, kind, pos)
+	if not mapInfo then return false, "The map is still loading..." end
 	if typeof(kind) ~= "string" or not RateLimit.validVector(pos) or math.abs(pos.Y - GROUND_Y) > 3 then
 		return false, "Invalid placement"
 	end
@@ -714,16 +727,18 @@ local function chooseDifficulty()
 		local td = joinData and joinData.TeleportData
 		if typeof(td) == "table" and td.Difficulty then
 			difficulty = Config.GetDifficulty(td.Difficulty)
+			currentMap = Config.GetMap(td.Map)
 			expectedPlayers = math.clamp(tonumber(td.PartySize) or 1, 1, Config.MaxPartySize)
 			return
 		end
 	end
 	difficulty = Config.GetDifficulty(workspace:GetAttribute("TestDifficulty") or "Normal")
+	currentMap = Config.GetMap(workspace:GetAttribute("TestMap")) -- Studio: set Workspace attribute TestMap = "Swamp"/"Lava"
 end
 
 local function coinsFor(wavesCleared, won)
 	local base = wavesCleared * Config.CoinsPerWave + (if won then Config.WinBonusCoins else 0)
-	return math.floor(base * difficulty.CoinMult)
+	return math.floor(base * difficulty.CoinMult * (currentMap.CoinMult or 1))
 end
 
 local function awardPlayers(wavesCleared, won)
@@ -768,6 +783,8 @@ while #Players:GetPlayers() == 0 do
 	task.wait(0.5)
 end
 chooseDifficulty()
+loadMap(currentMap)
+setState("Map", currentMap.Id)
 local waitStart = os.clock()
 while #Players:GetPlayers() < expectedPlayers and os.clock() - waitStart < 20 do
 	setState("Status", "Waiting for your party...")
@@ -779,7 +796,7 @@ while true do
 	while #Players:GetPlayers() == 0 do
 		task.wait(1)
 	end
-	countdown(Config.FirstIntermission, "[" .. difficulty.DisplayName .. "] Place your towers! Wave 1 in %d")
+	countdown(Config.FirstIntermission, "[" .. difficulty.DisplayName .. " · " .. currentMap.DisplayName .. "] Place your towers! Wave 1 in %d")
 	local won, cleared = true, 0
 	for w = 1, difficulty.Waves do
 		if not runWave(w) then

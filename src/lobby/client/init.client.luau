@@ -295,12 +295,31 @@ local queueTitle = UI.label({ Size = UDim2.new(1, 0, 0, 28), FontFace = Theme.Fo
 	TextXAlignment = Enum.TextXAlignment.Left, Text = "Party", LayoutOrder = 1, Parent = queue })
 local queueInfo = UI.label({ Size = UDim2.new(1, 0, 0, 20), TextSize = 16, TextColor3 = C.SubText,
 	TextXAlignment = Enum.TextXAlignment.Left, LayoutOrder = 2, Parent = queue })
-UI.label({ Size = UDim2.new(1, 0, 0, 18), TextSize = 14, TextColor3 = C.SubText, Text = "DIFFICULTY",
+-- Map picker
+UI.label({ Size = UDim2.new(1, 0, 0, 18), TextSize = 14, TextColor3 = C.SubText, Text = "MAP",
 	FontFace = Theme.FontBold, TextXAlignment = Enum.TextXAlignment.Left, LayoutOrder = 3, Parent = queue })
+local mapRow = UI.new("Frame", { Size = UDim2.new(1, 0, 0, 52), BackgroundTransparency = 1, LayoutOrder = 4, Parent = queue },
+	{ UI.list(Enum.FillDirection.Horizontal, 6) })
+local mapButtons = {}
+for i, m in Config.Maps do
+	local btn = UI.button({ Size = UDim2.new(1 / #Config.Maps, -4, 1, 0), Color = C.PanelLight, TextSize = 13, LayoutOrder = i, Parent = mapRow })
+	btn.TextWrapped = true
+	btn.Text = m.DisplayName .. (if (m.CoinMult or 1) > 1 then string.format("\n×%.2g coins", m.CoinMult) else "")
+	local mapStroke = UI.stroke(m.Color, 1, 2.5)
+	mapStroke.Parent = btn
+	btn.Activated:Connect(function()
+		local ok, msg = queueRemote:InvokeServer("Map", m.Id)
+		toast(msg, ok)
+	end)
+	mapButtons[m.Id] = { btn = btn, stroke = mapStroke, def = m }
+end
+
+UI.label({ Size = UDim2.new(1, 0, 0, 18), TextSize = 14, TextColor3 = C.SubText, Text = "DIFFICULTY",
+	FontFace = Theme.FontBold, TextXAlignment = Enum.TextXAlignment.Left, LayoutOrder = 5, Parent = queue })
 
 local diffButtons = {}
 local diffBox = UI.new("Frame", { Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, BackgroundTransparency = 1,
-	LayoutOrder = 4, Parent = queue }, { UI.list(nil, 6) })
+	LayoutOrder = 6, Parent = queue }, { UI.list(nil, 6) })
 for i, d in Config.Difficulties do
 	local btn = UI.button({ Size = UDim2.new(1, 0, 0, 38), Color = C.PanelLight, TextSize = 17, LayoutOrder = i, Parent = diffBox })
 	local btnStroke = UI.stroke(d.Color, 1, 2.5)
@@ -312,10 +331,10 @@ for i, d in Config.Difficulties do
 	diffButtons[d.Id] = { btn = btn, stroke = btnStroke, def = d }
 end
 
-local startBtn = UI.button({ Size = UDim2.new(1, 0, 0, 44), Color = C.Upgrade, Text = "START NOW", TextSize = 19, LayoutOrder = 5, Parent = queue })
-local leaveBtn = UI.button({ Size = UDim2.new(1, 0, 0, 36), Color = C.Sell, Text = "Leave", TextSize = 16, LayoutOrder = 6, Parent = queue })
+local startBtn = UI.button({ Size = UDim2.new(1, 0, 0, 44), Color = C.Upgrade, Text = "START NOW", TextSize = 19, LayoutOrder = 7, Parent = queue })
+local leaveBtn = UI.button({ Size = UDim2.new(1, 0, 0, 36), Color = C.Sell, Text = "Leave", TextSize = 16, LayoutOrder = 8, Parent = queue })
 local leaderNote = UI.label({ Size = UDim2.new(1, 0, 0, 18), TextSize = 13, TextColor3 = C.SubText,
-	Text = "The party leader picks the difficulty", LayoutOrder = 7, Parent = queue })
+	Text = "The party leader picks the map and difficulty", LayoutOrder = 9, Parent = queue })
 
 startBtn.Activated:Connect(function()
 	local ok, msg = queueRemote:InvokeServer("Start")
@@ -346,6 +365,13 @@ local function refreshQueue()
 		b.btn.Text = if unlocked then d.DisplayName else "🔒 " .. d.DisplayName .. "  (beat " .. d.Requires .. ")"
 		UI.setButtonColor(b.btn, if selected then d.Color:Lerp(C.Panel, 0.35) else C.PanelLight)
 		b.btn.TextTransparency = if unlocked then 0 else 0.5
+		b.stroke.Transparency = if selected then 0 else 1
+		b.btn.Active = isLeader
+	end
+	local currentMap = player:GetAttribute("QueueMap")
+	for id, b in mapButtons do
+		local selected = id == currentMap
+		UI.setButtonColor(b.btn, if selected then b.def.Color:Lerp(C.Panel, 0.45) else C.PanelLight)
 		b.stroke.Transparency = if selected then 0 else 1
 		b.btn.Active = isLeader
 	end

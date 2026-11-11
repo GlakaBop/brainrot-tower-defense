@@ -14,18 +14,18 @@ local TILE = 10
 
 local MapBuilder = {}
 
-local function setupLighting()
-	Lighting.ClockTime = 15
+local function setupLighting(theme)
+	Lighting.ClockTime = theme.ClockTime
 	Lighting.Brightness = 2.5
-	Lighting.Ambient = Color3.fromRGB(90, 70, 110)
-	Lighting.OutdoorAmbient = Color3.fromRGB(150, 130, 170)
+	Lighting.Ambient = theme.Ambient
+	Lighting.OutdoorAmbient = theme.OutdoorAmbient
 	for _, child in Lighting:GetChildren() do
 		if child.Name:sub(1, 3) == "BR_" then child:Destroy() end
 	end
 	local atmo = Lighting:FindFirstChildOfClass("Atmosphere") or Instance.new("Atmosphere")
-	atmo.Density = 0.25
-	atmo.Color = Color3.fromRGB(255, 200, 240)
-	atmo.Decay = Color3.fromRGB(120, 80, 200)
+	atmo.Density = theme.AtmoDensity
+	atmo.Color = theme.AtmoColor
+	atmo.Decay = theme.AtmoDecay
 	atmo.Glare = 0.3
 	atmo.Haze = 1
 	atmo.Parent = Lighting
@@ -110,12 +110,74 @@ function Decor.Rock(parent, pos, rng)
 	return s * 0.8
 end
 
-local DECOR_ORDER = { "Mushroom", "CandyTree", "FloatingBrain", "Lollipop", "Rock", "CandyTree", "Mushroom" }
+function Decor.DeadTree(parent, pos, rng)
+	local bark = Color3.fromRGB(70, 55, 50)
+	local h = rng:NextNumber(6, 9)
+	makePart({ Name = "Decor", Shape = CYL, Size = Vector3.new(h, 1.4, 1.4), CFrame = CFrame.new(pos + Vector3.new(0, h / 2, 0)) * UPRIGHT,
+		Color = bark, Material = Enum.Material.Wood }, parent)
+	for i = 1, 3 do
+		local a = i / 3 * math.pi * 2 + rng:NextNumber()
+		local len = rng:NextNumber(2.5, 4)
+		makePart({ Name = "Decor", Shape = CYL, Size = Vector3.new(len, 0.6, 0.6),
+			CFrame = CFrame.new(pos + Vector3.new(0, h * rng:NextNumber(0.6, 0.9), 0)) * CFrame.Angles(0, a, math.rad(35))
+				* CFrame.new(len / 2, 0, 0),
+			Color = bark, Material = Enum.Material.Wood }, parent)
+	end
+	return 2.5
+end
+
+function Decor.GlowShroom(parent, pos, rng)
+	local h = rng:NextNumber(2, 4)
+	local glow = if rng:NextInteger(0, 1) == 0 then Color3.fromRGB(120, 255, 140) else Color3.fromRGB(190, 110, 255)
+	makePart({ Name = "Decor", Shape = CYL, Size = Vector3.new(h, 1, 1), CFrame = CFrame.new(pos + Vector3.new(0, h / 2, 0)) * UPRIGHT,
+		Color = Color3.fromRGB(220, 220, 200) }, parent)
+	local cap = makePart({ Name = "Decor", Shape = CYL, Size = Vector3.new(0.9, 4, 4),
+		CFrame = CFrame.new(pos + Vector3.new(0, h + 0.4, 0)) * UPRIGHT, Color = glow, Material = Enum.Material.Neon }, parent)
+	local light = Instance.new("PointLight")
+	light.Color = glow
+	light.Range = 12
+	light.Parent = cap
+	return 2.5
+end
+
+function Decor.Volcano(parent, pos, rng)
+	local rock = Color3.fromRGB(60, 40, 40)
+	local y = pos.Y
+	for i, d in { 12, 9, 6 } do
+		local h = 3
+		makePart({ Name = "Decor", Shape = CYL, Size = Vector3.new(h, d, d), CFrame = CFrame.new(pos.X, y + h / 2, pos.Z) * UPRIGHT,
+			Color = rock:Lerp(Color3.fromRGB(90, 50, 40), i / 3), Material = Enum.Material.Basalt }, parent)
+		y += h
+	end
+	local lava = makePart({ Name = "Decor", Shape = CYL, Size = Vector3.new(0.4, 4, 4), CFrame = CFrame.new(pos.X, y + 0.1, pos.Z) * UPRIGHT,
+		Color = Color3.fromRGB(255, 120, 30), Material = Enum.Material.Neon }, parent)
+	local smoke = Instance.new("ParticleEmitter")
+	smoke.Color = ColorSequence.new(Color3.fromRGB(255, 140, 60), Color3.fromRGB(80, 60, 60))
+	smoke.Rate = 6
+	smoke.Lifetime = NumberRange.new(2, 3)
+	smoke.Speed = NumberRange.new(4, 7)
+	smoke.Size = NumberSequence.new(1.5, 4)
+	smoke.Transparency = NumberSequence.new(0.3, 1)
+	smoke.Parent = lava
+	return 6.5
+end
+
+function Decor.LavaCrystal(parent, pos, rng)
+	for _ = 1, 3 do
+		local h = rng:NextNumber(2.5, 5)
+		makePart({ Name = "Decor", Size = Vector3.new(0.9, h, 0.9),
+			CFrame = CFrame.new(pos + Vector3.new(rng:NextNumber(-1, 1), h / 2, rng:NextNumber(-1, 1)))
+				* CFrame.Angles(rng:NextNumber(-0.4, 0.4), rng:NextNumber(0, 6), rng:NextNumber(-0.4, 0.4)),
+			Color = Color3.fromRGB(255, 90, 40), Material = Enum.Material.Neon }, parent)
+	end
+	return 2
+end
 
 ---------------------------------------------------------------- build
 -- Returns { bounds = Part, baseCenter = Vector3, basePart = Part, blockers = { {pos, radius} } }
-function MapBuilder.build(waypoints, distanceToPath, groundY)
-	setupLighting()
+function MapBuilder.build(mapDef, waypoints, distanceToPath, groundY)
+	local theme = mapDef.Theme
+	setupLighting(theme)
 	local map = Util.makeFolder("Map", workspace)
 
 	-- Invisible bounds used by the server to validate tower placement.
@@ -127,7 +189,7 @@ function MapBuilder.build(waypoints, distanceToPath, groundY)
 	-- Dirt cliff under the field
 	makePart({
 		Name = "Cliff", Size = Vector3.new(FIELD.X + 4, 8, FIELD.Y + 4), Position = Vector3.new(0, groundY - 4.6, 0),
-		Color = Color3.fromRGB(120, 80, 60), Material = Enum.Material.Ground,
+		Color = theme.Cliff, Material = Enum.Material.Ground,
 	}, map)
 
 	-- Checkered field (tiles are named Ground so the client knows it can build there)
@@ -138,7 +200,7 @@ function MapBuilder.build(waypoints, distanceToPath, groundY)
 			makePart({
 				Name = "Ground", Size = Vector3.new(TILE, 1, TILE),
 				Position = Vector3.new(-FIELD.X / 2 + TILE / 2 + ix * TILE, groundY - 0.5, -FIELD.Y / 2 + TILE / 2 + iz * TILE),
-				Color = if (ix + iz) % 2 == 0 then Color3.fromRGB(120, 210, 90) else Color3.fromRGB(100, 190, 75),
+				Color = if (ix + iz) % 2 == 0 then theme.TileA else theme.TileB,
 				Material = Enum.Material.SmoothPlastic,
 			}, tiles)
 		end
@@ -154,13 +216,13 @@ function MapBuilder.build(waypoints, distanceToPath, groundY)
 		local cf = CFrame.lookAt((a + b) / 2, b)
 		makePart({
 			Name = "Path", Size = Vector3.new(w, 0.1, len + w), CFrame = cf,
-			Color = Color3.fromRGB(235, 205, 150), Material = Enum.Material.SmoothPlastic,
+			Color = theme.Path, Material = if theme.PathNeon then Enum.Material.Neon else Enum.Material.SmoothPlastic,
 		}, map)
 		for _, side in { -1, 1 } do
 			makePart({
 				Name = "Path", Size = Vector3.new(0.6, 0.4, len - w + 0.6),
 				CFrame = cf * CFrame.new(side * (w / 2 + 0.3), 0.15, 0),
-				Color = if i % 2 == 0 then Color3.fromRGB(255, 120, 220) else Color3.fromRGB(150, 110, 255),
+				Color = if i % 2 == 0 then theme.CurbA else theme.CurbB,
 				Material = Enum.Material.Neon,
 			}, map)
 		end
@@ -235,7 +297,7 @@ function MapBuilder.build(waypoints, distanceToPath, groundY)
 		end
 		if ok then
 			placed += 1
-			local kind = DECOR_ORDER[(placed - 1) % #DECOR_ORDER + 1]
+			local kind = theme.Decor[(placed - 1) % #theme.Decor + 1]
 			local radius = Decor[kind](decorFolder, pos, rng)
 			table.insert(blockers, { pos = pos, radius = radius })
 		end

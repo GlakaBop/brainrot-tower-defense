@@ -126,16 +126,60 @@ Config.Sounds = {
 }
 
 -- Enemy path (X/Z only; Y is the ground height). First point = spawn, last = base.
-Config.Path = {
-	Vector3.new(-92, 0, -50),
-	Vector3.new(-50, 0, -50),
-	Vector3.new(-50, 0, 30),
-	Vector3.new(-10, 0, 30),
-	Vector3.new(-10, 0, -40),
-	Vector3.new(35, 0, -40),
-	Vector3.new(35, 0, 45),
-	Vector3.new(88, 0, 45),
+-- Maps. The field is 200 x 140 studs (X from -100 to 100, Z from -70 to 70).
+-- Path: enemy route (X/Z only), first point = spawn portal, last point = your base.
+-- Theme: colors, lighting and which decorations to scatter (see MapBuilder for decor types).
+Config.Maps = {
+	{
+		Id = "Meadow", DisplayName = "Brainrot Meadow", CoinMult = 1, Color = Color3.fromRGB(120, 210, 90),
+		Path = {
+			Vector3.new(-92, 0, -50), Vector3.new(-50, 0, -50), Vector3.new(-50, 0, 30), Vector3.new(-10, 0, 30),
+			Vector3.new(-10, 0, -40), Vector3.new(35, 0, -40), Vector3.new(35, 0, 45), Vector3.new(88, 0, 45),
+		},
+		Theme = {
+			TileA = Color3.fromRGB(120, 210, 90), TileB = Color3.fromRGB(100, 190, 75), Cliff = Color3.fromRGB(120, 80, 60),
+			Path = Color3.fromRGB(235, 205, 150), CurbA = Color3.fromRGB(255, 120, 220), CurbB = Color3.fromRGB(150, 110, 255),
+			ClockTime = 15, Ambient = Color3.fromRGB(90, 70, 110), OutdoorAmbient = Color3.fromRGB(150, 130, 170),
+			AtmoColor = Color3.fromRGB(255, 200, 240), AtmoDecay = Color3.fromRGB(120, 80, 200), AtmoDensity = 0.25,
+			Decor = { "Mushroom", "CandyTree", "FloatingBrain", "Lollipop", "Rock", "CandyTree", "Mushroom" },
+		},
+	},
+	{
+		Id = "Swamp", DisplayName = "Spooky Swamp", CoinMult = 1, Color = Color3.fromRGB(120, 200, 120),
+		Path = {
+			Vector3.new(-92, 0, -50), Vector3.new(70, 0, -50), Vector3.new(70, 0, -10),
+			Vector3.new(-70, 0, -10), Vector3.new(-70, 0, 30), Vector3.new(88, 0, 30),
+		},
+		Theme = {
+			TileA = Color3.fromRGB(60, 85, 60), TileB = Color3.fromRGB(50, 72, 55), Cliff = Color3.fromRGB(45, 35, 40),
+			Path = Color3.fromRGB(95, 75, 60), CurbA = Color3.fromRGB(120, 255, 120), CurbB = Color3.fromRGB(180, 90, 255),
+			ClockTime = 19.2, Ambient = Color3.fromRGB(70, 60, 100), OutdoorAmbient = Color3.fromRGB(90, 90, 130),
+			AtmoColor = Color3.fromRGB(150, 200, 160), AtmoDecay = Color3.fromRGB(60, 40, 90), AtmoDensity = 0.4,
+			Decor = { "DeadTree", "GlowShroom", "Rock", "FloatingBrain", "DeadTree", "GlowShroom" },
+		},
+	},
+	{
+		Id = "Lava", DisplayName = "Lava Land", CoinMult = 1.25, Color = Color3.fromRGB(255, 120, 40),
+		Path = {
+			Vector3.new(-92, 0, 0), Vector3.new(-40, 0, 0), Vector3.new(-40, 0, -45), Vector3.new(20, 0, -45),
+			Vector3.new(20, 0, 45), Vector3.new(60, 0, 45), Vector3.new(60, 0, 0), Vector3.new(88, 0, 0),
+		},
+		Theme = {
+			TileA = Color3.fromRGB(70, 50, 50), TileB = Color3.fromRGB(58, 42, 44), Cliff = Color3.fromRGB(40, 25, 25),
+			Path = Color3.fromRGB(255, 120, 40), PathNeon = true, CurbA = Color3.fromRGB(30, 20, 20), CurbB = Color3.fromRGB(30, 20, 20),
+			ClockTime = 17.6, Ambient = Color3.fromRGB(110, 60, 50), OutdoorAmbient = Color3.fromRGB(150, 90, 70),
+			AtmoColor = Color3.fromRGB(255, 160, 120), AtmoDecay = Color3.fromRGB(150, 50, 30), AtmoDensity = 0.35,
+			Decor = { "Volcano", "LavaCrystal", "Rock", "LavaCrystal", "Rock" },
+		},
+	},
 }
+
+function Config.GetMap(id: string?)
+	for _, m in Config.Maps do
+		if m.Id == id then return m end
+	end
+	return Config.Maps[1]
+end
 
 -- Damage = lives lost if it reaches your base.
 -- Armor = flat damage blocked per hit (min 1 damage). Flying = only some towers can hit it.

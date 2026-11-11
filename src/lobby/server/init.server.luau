@@ -129,7 +129,7 @@ for i, pos in PAD_SPOTS do
 
 	pads[i] = {
 		id = i, center = pos, ring = ring, title = title, info = info, timerLbl = timerLbl,
-		players = {}, difficulty = "Normal", timer = 0, launching = false,
+		players = {}, difficulty = "Normal", map = Config.Maps[1].Id, timer = 0, launching = false,
 	}
 end
 
@@ -164,19 +164,22 @@ local function syncPad(pad)
 	pad.ring.Color = if #pad.players > 0 then diff.Color else Color3.fromRGB(90, 160, 255)
 	pad.title.Text = if #pad.players > 0 then diff.DisplayName else "PLAY"
 	pad.title.TextColor3 = if #pad.players > 0 then diff.Color else Color3.new(1, 1, 1)
-	pad.info.Text = string.format("%d / %d players", #pad.players, Config.MaxPartySize)
+	pad.info.Text = if #pad.players > 0
+		then string.format("%s  ·  %d / %d", Config.GetMap(pad.map).DisplayName, #pad.players, Config.MaxPartySize)
+		else string.format("0 / %d players", Config.MaxPartySize)
 	pad.timerLbl.Text = if pad.launching then "Teleporting..." elseif #pad.players > 0 then "Starting in " .. math.ceil(pad.timer) else "Step in to play"
 	for _, p in pad.players do
 		p:SetAttribute("QueuePad", pad.id)
 		p:SetAttribute("QueueLeader", leader(pad) == p)
 		p:SetAttribute("QueueDifficulty", pad.difficulty)
+		p:SetAttribute("QueueMap", pad.map)
 		p:SetAttribute("QueueCount", #pad.players)
 		p:SetAttribute("QueueTimer", math.ceil(pad.timer))
 	end
 end
 
 local function clearQueueAttrs(player)
-	for _, a in { "QueuePad", "QueueLeader", "QueueDifficulty", "QueueCount", "QueueTimer" } do
+	for _, a in { "QueuePad", "QueueLeader", "QueueDifficulty", "QueueMap", "QueueCount", "QueueTimer" } do
 		player:SetAttribute(a, nil)
 	end
 end
@@ -197,6 +200,7 @@ local function removeFromPad(player, pad, push)
 	if push then pushOff(player, pad) end
 	if #pad.players == 0 then
 		pad.difficulty = "Normal"
+		pad.map = Config.Maps[1].Id
 		pad.timer = 0
 	end
 	syncPad(pad)
@@ -229,7 +233,7 @@ local function launch(pad)
 		local code = TeleportService:ReserveServer(Config.PlaceIds.Match)
 		local options = Instance.new("TeleportOptions")
 		options.ReservedServerAccessCode = code
-		options:SetTeleportData({ Difficulty = pad.difficulty, PartySize = #group })
+		options:SetTeleportData({ Difficulty = pad.difficulty, Map = pad.map, PartySize = #group })
 		TeleportService:TeleportAsync(Config.PlaceIds.Match, group, options)
 	end)
 	if ok then
@@ -316,6 +320,12 @@ makeRemote("QueueAction", function(player, action, arg)
 		pad.difficulty = arg
 		syncPad(pad)
 		return true, Config.GetDifficulty(arg).DisplayName .. " selected"
+	elseif action == "Map" then
+		local mapDef = typeof(arg) == "string" and Config.GetMap(arg)
+		if not mapDef or mapDef.Id ~= arg then return false, "Unknown map" end
+		pad.map = arg
+		syncPad(pad)
+		return true, mapDef.DisplayName .. " selected"
 	elseif action == "Start" then
 		pad.timer = math.min(pad.timer, 3)
 		syncPad(pad)
