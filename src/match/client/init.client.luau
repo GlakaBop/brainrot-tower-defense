@@ -16,126 +16,11 @@ local camera = workspace.CurrentCamera
 local cash = player:WaitForChild("leaderstats"):WaitForChild("Cash")
 local C = Theme.Colors
 
----------------------------------------------------------------- UI kit
-local function new(className, props, children)
-	local inst = Instance.new(className)
-	for k, v in props do
-		if k ~= "Parent" then
-			inst[k] = v
-		end
-	end
-	for _, child in children or {} do
-		child.Parent = inst
-	end
-	inst.Parent = props.Parent
-	return inst
-end
-
-local function corner(radius)
-	return new("UICorner", { CornerRadius = UDim.new(0, radius or Theme.Corner) })
-end
-
-local function stroke(color, transparency, thickness)
-	return new("UIStroke", {
-		Color = color or C.Stroke, Transparency = transparency or 0.88, Thickness = thickness or 1.5,
-		ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
-	})
-end
-
-local function padding(x, y)
-	return new("UIPadding", {
-		PaddingLeft = UDim.new(0, x), PaddingRight = UDim.new(0, x),
-		PaddingTop = UDim.new(0, y or x), PaddingBottom = UDim.new(0, y or x),
-	})
-end
-
-local function shine()
-	return new("UIGradient", {
-		Color = ColorSequence.new(Color3.new(1, 1, 1), Color3.fromRGB(205, 205, 215)),
-		Rotation = 90,
-	})
-end
-
-local function label(props)
-	local defaults = {
-		BackgroundTransparency = 1, FontFace = Theme.Font, TextColor3 = C.Text, TextSize = 18,
-	}
-	for k, v in props do
-		defaults[k] = v
-	end
-	return new("TextLabel", defaults)
-end
-
-local function panel(props, children)
-	local defaults = { BackgroundColor3 = C.Panel, BackgroundTransparency = Theme.PanelTransparency, BorderSizePixel = 0 }
-	for k, v in props do
-		defaults[k] = v
-	end
-	local f = new("Frame", defaults, children)
-	corner().Parent = f
-	stroke().Parent = f
-	return f
-end
-
--- Round icon: uses an image if one is set in Theme.Icons, otherwise a text glyph.
-local function icon(props)
-	local holder = new("Frame", {
-		Name = "Icon", Size = props.Size, Position = props.Position or UDim2.new(), AnchorPoint = props.AnchorPoint or Vector2.zero,
-		BackgroundColor3 = props.Color, BorderSizePixel = 0, Parent = props.Parent,
-	}, { corner(999), shine() })
-	if props.Image and props.Image ~= "" then
-		-- Custom art has its own shape, so drop the colored circle behind it.
-		holder.BackgroundTransparency = 1
-		holder:FindFirstChildOfClass("UIGradient"):Destroy()
-		new("ImageLabel", {
-			Name = "Art", Size = UDim2.fromScale(1.15, 1.15), Position = UDim2.fromScale(-0.075, -0.075),
-			BackgroundTransparency = 1, Image = props.Image, ScaleType = Enum.ScaleType.Fit, Parent = holder,
-		})
-	else
-		label({
-			Size = UDim2.fromScale(1, 1), Text = props.Glyph or "?", FontFace = Theme.FontHeavy,
-			TextScaled = true, Parent = holder,
-		}, nil)
-		new("UIPadding", {
-			PaddingTop = UDim.new(0.18, 0), PaddingBottom = UDim.new(0.18, 0),
-			Parent = holder:FindFirstChildOfClass("TextLabel"),
-		})
-	end
-	return holder
-end
-
-local function tween(inst, time, goal, style)
-	local t = TweenService:Create(inst, TweenInfo.new(time, style or Enum.EasingStyle.Quad, Enum.EasingDirection.Out), goal)
-	t:Play()
-	return t
-end
-
-local function lighten(color, amount)
-	return color:Lerp(Color3.new(1, 1, 1), amount)
-end
-
-local function actionButton(props)
-	local color = props.Color
-	local btn = new("TextButton", {
-		Name = props.Name, Size = props.Size, Position = props.Position or UDim2.new(), LayoutOrder = props.LayoutOrder or 0,
-		BackgroundColor3 = color, AutoButtonColor = false, BorderSizePixel = 0,
-		FontFace = Theme.FontBold, TextColor3 = Color3.new(1, 1, 1), TextSize = props.TextSize or 18,
-		Text = props.Text or "", Parent = props.Parent,
-	}, { corner(10), shine() })
-	btn:SetAttribute("BaseColor", color)
-	btn.MouseEnter:Connect(function()
-		tween(btn, 0.12, { BackgroundColor3 = lighten(btn:GetAttribute("BaseColor"), 0.15) })
-	end)
-	btn.MouseLeave:Connect(function()
-		tween(btn, 0.12, { BackgroundColor3 = btn:GetAttribute("BaseColor") })
-	end)
-	return btn
-end
-
-local function setButtonColor(btn, color)
-	btn:SetAttribute("BaseColor", color)
-	btn.BackgroundColor3 = color
-end
+---------------------------------------------------------------- UI kit (shared with the lobby, so both screens look the same)
+local UI = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("UIKit"))
+local new, corner, stroke, padding, shine = UI.new, UI.corner, UI.stroke, UI.padding, UI.shine
+local label, panel, icon, tween = UI.label, UI.panel, UI.icon, UI.tween
+local actionButton, setButtonColor = UI.button, UI.setButtonColor
 
 ---------------------------------------------------------------- root + scaling
 local gui = new("ScreenGui", {
@@ -528,9 +413,8 @@ local function refreshCards()
 		else
 			c.iconFrame.BackgroundTransparency = if affordable then 0 else 0.5
 		end
-		c.stroke.Color = if active then Config.Towers[kind].Color else C.Stroke
-		c.stroke.Transparency = if active then 0 else 0.88
-		c.stroke.Thickness = if active then 3 else 1.5
+		c.stroke.Color = if active then C.Gold else C.Stroke
+		c.stroke.Thickness = if active then 5 else 4
 	end
 end
 
@@ -599,10 +483,12 @@ end
 for i, kind in loadout do
 	local def = Config.Towers[kind]
 	local card = new("TextButton", {
-		Name = kind, Size = UDim2.fromOffset(104, 118), BackgroundColor3 = C.Panel,
-		BackgroundTransparency = Theme.PanelTransparency, AutoButtonColor = false, Text = "", LayoutOrder = i, Parent = hotbar,
+		Name = kind, Size = UDim2.fromOffset(104, 118),
+		BackgroundColor3 = Config.GetRarity(def.Rarity or "Common").Color:Lerp(Color3.new(1, 1, 1), 0.25),
+		AutoButtonColor = false, Text = "", LayoutOrder = i, Parent = hotbar,
 	}, { corner() })
-	local cardStroke = stroke()
+	UI.gloss(card)
+	local cardStroke = stroke(C.Stroke, 0, 4)
 	cardStroke.Parent = card
 	local cardScale = new("UIScale", { Parent = card })
 
