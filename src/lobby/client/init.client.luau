@@ -32,7 +32,7 @@ local function tile(name, text, color, size, order, parent)
 	local art = UI.new("Frame", { Name = "Art", AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 6),
 		Size = UDim2.new(1, -16, 1, -42), BackgroundTransparency = 1, Parent = t })
 	UI.label({ AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -4), Size = UDim2.new(1, -8, 0, 32),
-		Text = text, TextSize = 26, Parent = t })
+		Text = text, TextSize = 26, FontFace = Theme.FontHeavy, Parent = t })
 	local dot = UI.new("Frame", { Name = "Dot", AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(1, -4, 0, 4),
 		Size = UDim2.fromOffset(26, 26), BackgroundColor3 = Color3.fromRGB(235, 35, 45), Visible = false, ZIndex = 3, Parent = t },
 		{ UI.corner(999) })
@@ -55,6 +55,7 @@ UI.icon({ Size = UDim2.fromOffset(66, 66), AnchorPoint = Vector2.new(0.5, 0.5), 
 local function currencyRow(order, color)
 	local row = UI.new("Frame", { Size = UDim2.fromOffset(250, 40), BackgroundTransparency = 1, LayoutOrder = order, Parent = menu })
 	local lbl = UI.label({ Position = UDim2.fromOffset(52, 0), Size = UDim2.new(1, -52, 1, 0), TextSize = 32, TextColor3 = color,
+		FontFace = Theme.FontHeavy,
 		TextXAlignment = Enum.TextXAlignment.Left, Parent = row })
 	return row, lbl
 end
@@ -95,6 +96,7 @@ local playBtn = UI.button({
 	Name = "PlayButton", AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -186), Size = UDim2.fromOffset(250, 72),
 	Color = Theme.Tiles.Play, Text = "Play", TextSize = 50, Radius = 6, Parent = gui,
 })
+playBtn.FontFace = Theme.FontHeavy
 playBtn.Activated:Connect(function()
 	local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
 	if not root then return end
@@ -309,7 +311,7 @@ local function refreshSlotBar(loadout)
 			UI.icon({ Size = UDim2.fromOffset(74, 74), AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.52),
 				Color = def.Color, Image = Theme.Icons.Towers[kind], Glyph = Theme.Glyphs.Towers[kind], Parent = btn })
 			UI.label({ AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.fromScale(0.5, 1), Size = UDim2.new(1, 0, 0, 24),
-				Text = "$" .. def.Levels[1].Cost, TextSize = 24, TextColor3 = C.Gold, Parent = holder })
+				Text = "$" .. def.Levels[1].Cost, TextSize = 24, TextColor3 = C.Gold, FontFace = Theme.FontHeavy, Parent = holder })
 		else
 			UI.label({ Size = UDim2.fromScale(1, 1), Text = "+", TextSize = 44, TextTransparency = 0.4, Parent = btn })
 		end

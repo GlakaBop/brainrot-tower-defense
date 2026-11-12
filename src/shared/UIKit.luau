@@ -20,8 +20,10 @@ function UI.new(className, props, children)
 end
 local new = UI.new
 
+-- Corners are capped at Theme.Corner so the whole UI stays blocky. 999 = small round dots only.
 function UI.corner(radius)
-	return new("UICorner", { CornerRadius = UDim.new(0, radius or Theme.Corner) })
+	local r = if radius and radius >= 999 then 999 else math.min(radius or Theme.Corner, Theme.Corner)
+	return new("UICorner", { CornerRadius = UDim.new(0, r) })
 end
 
 function UI.stroke(color, transparency, thickness)
@@ -110,7 +112,7 @@ function UI.icon(props)
 	local holder = new("Frame", {
 		Name = "Icon", Size = props.Size, Position = props.Position or UDim2.new(), AnchorPoint = props.AnchorPoint or Vector2.zero,
 		BackgroundColor3 = props.Color or C.PanelLight, BorderSizePixel = 0, LayoutOrder = props.LayoutOrder or 0, Parent = props.Parent,
-	}, { UI.corner(999) })
+	}, { UI.corner() })
 	if props.Image and props.Image ~= "" then
 		holder.BackgroundTransparency = 1
 		new("ImageLabel", {
@@ -172,7 +174,7 @@ function UI.toast(gui)
 		AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -40), Size = UDim2.fromOffset(0, 36),
 		AutomaticSize = Enum.AutomaticSize.X, BackgroundColor3 = C.Panel, BackgroundTransparency = 0.05,
 		GroupTransparency = 1, ZIndex = 50, Parent = gui,
-	}, { UI.corner(999), UI.padding(18, 0) })
+	}, { UI.corner(), UI.padding(18, 0) })
 	local text = UI.label({ Size = UDim2.fromScale(0, 1), AutomaticSize = Enum.AutomaticSize.X, FontFace = Theme.FontBold, TextSize = 17, Parent = frame })
 	local token = 0
 	return function(message, good)

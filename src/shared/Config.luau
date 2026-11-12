@@ -297,7 +297,7 @@ Config.Enemies = {
 		Size = Vector3.new(3.5, 3.5, 3.5), Color = Color3.fromRGB(90, 200, 255),
 		Shape = "Ball", Accessories = { "Sunglasses" },
 	},
-	-- Hidden: towers can only hit it inside a Sus Radar's range.
+	-- Hidden: towers can only hit it inside a Lighthouse's range.
 	Ghost = {
 		DisplayName = "Sneaky Sus",
 		Health = 18, Speed = 10, Reward = 10, Damage = 2, Hidden = true,
@@ -310,7 +310,7 @@ Config.Enemies = {
 -- Optional per-level stats: Splash (radius), Slow (speed multiplier), SlowTime (seconds).
 Config.Towers = {
 	RizzBlaster = {
-		DisplayName = "Rizz Blaster", Rarity = "Common",
+		DisplayName = "Barracks", Rarity = "Common",
 		Description = "Reliable single-target laser.",
 		Color = Color3.fromRGB(255, 230, 60), HeadShape = "Ball", HitsFlying = true,
 		Sound = "Laser", Pitch = 1.2,
@@ -321,7 +321,7 @@ Config.Towers = {
 		},
 	},
 	YapCannon = {
-		DisplayName = "Yap Cannon",
+		DisplayName = "Cannon",
 		Description = "Splash damage. Can't hit flying.", Rarity = "Epic",
 		Color = Color3.fromRGB(255, 120, 40), HeadShape = "Block", HitsFlying = false,
 		Sound = "Explosion", Pitch = 1.3,
@@ -332,7 +332,7 @@ Config.Towers = {
 		},
 	},
 	BrainFreeze = {
-		DisplayName = "Brain Freeze",
+		DisplayName = "Ice Wizard",
 		Description = "Slows enemies down.", Rarity = "Rare",
 		Color = Color3.fromRGB(120, 200, 255), HeadShape = "Cylinder", HitsFlying = true,
 		Sound = "Laser", Pitch = 1.8,
@@ -343,7 +343,7 @@ Config.Towers = {
 		},
 	},
 	SigmaSniper = {
-		DisplayName = "Sigma Sniper",
+		DisplayName = "Sniper Stand",
 		Description = "Huge range, huge damage, slow.", Rarity = "Legendary",
 		Color = Color3.fromRGB(200, 80, 255), HeadShape = "Ball", HitsFlying = true,
 		Sound = "Laser", Pitch = 0.6,
@@ -356,7 +356,7 @@ Config.Towers = {
 
 	-- Type = "Farm": no attack, pays its owner Income cash at the end of every wave.
 	BagChaser = {
-		DisplayName = "Bag Chaser", Rarity = "Rare", Type = "Farm", Limit = 6,
+		DisplayName = "Marketplace", Rarity = "Rare", Type = "Farm", Limit = 6,
 		Description = "Earns extra cash every wave. Doesn't attack.",
 		Color = Color3.fromRGB(255, 215, 0), HeadShape = "Block", HitsFlying = false,
 		Levels = {
@@ -367,7 +367,7 @@ Config.Towers = {
 	},
 	-- RevealsHidden: towers in this tower's range can target hidden enemies.
 	SusRadar = {
-		DisplayName = "Sus Radar", Rarity = "Rare", RevealsHidden = true,
+		DisplayName = "Lighthouse", Rarity = "Rare", RevealsHidden = true,
 		Description = "Lets nearby towers see hidden enemies. Weak attack.",
 		Color = Color3.fromRGB(120, 255, 160), HeadShape = "Cylinder", HitsFlying = true,
 		Sound = "Laser", Pitch = 1.5,
@@ -379,7 +379,7 @@ Config.Towers = {
 	},
 	-- Type = "Support": boosts towers inside its range (strongest boost applies, they don't stack).
 	AuraFarmer = {
-		DisplayName = "Aura Farmer", Rarity = "Epic", Type = "Support", Limit = 4,
+		DisplayName = "Nurse Stand", Rarity = "Epic", Type = "Support", Limit = 4,
 		Description = "Boosts damage and fire rate of nearby towers.",
 		Color = Color3.fromRGB(255, 120, 200), HeadShape = "Ball", HitsFlying = false,
 		Levels = {
@@ -390,7 +390,7 @@ Config.Towers = {
 	},
 	-- Type = "Chain": hits a target, then jumps to up to Chains more enemies within ChainRange.
 	MewingTesla = {
-		DisplayName = "Mewing Tesla", Rarity = "Mythic", Type = "Chain",
+		DisplayName = "Zap Tower", Rarity = "Mythic", Type = "Chain",
 		Description = "Lightning that chains between enemies.",
 		Color = Color3.fromRGB(120, 230, 255), HeadShape = "Ball", HitsFlying = true,
 		Sound = "Laser", Pitch = 2.2,
@@ -421,7 +421,7 @@ Config.Waves = {
 	{ { "Toast", 6, 1 }, { "Boss", 1, 0 } },
 	{ { "Shielded", 6, 1.2 }, { "Noodle", 20, 0.4 }, { "Flyer", 10, 0.6 } }, -- 11: shields appear
 	{ { "Knight", 12, 1 }, { "Healer", 3, 1.5 }, { "Toast", 6, 1 } },
-	{ { "Ghost", 4, 1.5 }, { "Zoomer", 25, 0.3 } }, -- 13: hidden enemies appear (bring a Sus Radar!)
+	{ { "Ghost", 4, 1.5 }, { "Zoomer", 25, 0.3 } }, -- 13: hidden enemies appear (bring a Lighthouse!)
 	{ { "Flyer", 20, 0.5 }, { "Shielded", 8, 0.8 }, { "Knight", 8, 0.8 } },
 	{ { "Toast", 15, 0.8 }, { "Splitter", 8, 0.6 }, { "Boss", 1, 0 } },
 	{ { "Knight", 20, 0.7 }, { "Ghost", 8, 0.8 }, { "Flyer", 15, 0.4 } },

@@ -1,11 +1,11 @@
 -- UI look & feel. Change colors/fonts here; paste image IDs into Icons to replace the text icons.
 local Theme = {}
 
--- Chunky cartoon font. Every label also gets a dark outline (Theme.TextStroke).
-local CARTOON = Font.fromEnum(Enum.Font.FredokaOne)
-Theme.Font = CARTOON
-Theme.FontBold = CARTOON
-Theme.FontHeavy = CARTOON
+-- Blocky fonts: Gotham for body text, Luckiest Guy for big titles/buttons. Every label gets a dark outline.
+local GOTHAM = "rbxasset://fonts/families/GothamSSm.json"
+Theme.Font = Font.new(GOTHAM, Enum.FontWeight.Bold)
+Theme.FontBold = Font.new(GOTHAM, Enum.FontWeight.Heavy)
+Theme.FontHeavy = Font.fromEnum(Enum.Font.LuckiestGuy)
 
 Theme.TextStroke = Color3.fromRGB(30, 18, 50)
 Theme.TextStrokeThickness = 2
@@ -29,7 +29,7 @@ Theme.Colors = {
 }
 
 Theme.PanelTransparency = 0
-Theme.Corner = 16
+Theme.Corner = 4 -- max corner rounding everywhere (blocky look). Raise for a rounder style.
 
 -- Lobby menu tiles (left side). Background colors, like the bright pastel tiles in popular sims.
 Theme.Tiles = {
@@ -68,14 +68,14 @@ Theme.Glyphs = {
 	Cash = "$",
 	Wave = "W",
 	Towers = {
-		RizzBlaster = "R",
-		BrainFreeze = "F",
-		YapCannon = "Y",
-		SigmaSniper = "S",
-		BagChaser = "$",
-		SusRadar = "?",
-		AuraFarmer = "A",
-		MewingTesla = "T",
+		RizzBlaster = "B", -- Barracks
+		BrainFreeze = "I", -- Ice Wizard
+		YapCannon = "C", -- Cannon
+		SigmaSniper = "S", -- Sniper Stand
+		BagChaser = "$", -- Marketplace
+		SusRadar = "L", -- Lighthouse
+		AuraFarmer = "+", -- Nurse Stand
+		MewingTesla = "Z", -- Zap Tower
 	},
 }
 
